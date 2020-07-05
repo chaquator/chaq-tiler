@@ -66,9 +66,7 @@ bool shouldManageWindow(HWND window) {
 	if (GetWindowTextLength(window) == 0) return false;
 
 	// Visibility Filtering
-	if (!IsWindowVisible(window)) {
-		return false;
-	}
+	if (!IsWindowVisible(window)) return false;
 
 	// Attributes
 	LONG style = GetWindowLong(window, GWL_STYLE);
@@ -104,28 +102,16 @@ bool shouldManageWindow(HWND window) {
 
 	for (auto& rule : window_rule_list) {
 		// Class name filtering
-		if (!rule.ClassName.empty()) {
-			if (class_name.find(rule.ClassName) == std::string_view::npos) {
-				continue;
-			}
-		}
+		if (!rule.ClassName.empty() && class_name.find(rule.ClassName) == std::string_view::npos) continue;
 
 		// Title name filtering
-		if (!rule.TitleName.empty()) {
-			if (title.find(rule.TitleName) == std::string_view::npos) {
-				continue;
-			}
-		}
+		if (!rule.TitleName.empty() && title.find(rule.TitleName) == std::string_view::npos) continue;
 
 		// Style filtering
-		if ((style & rule.Style) != rule.Style) {
-			continue;
-		}
+		if ((style & rule.Style) != rule.Style)	continue;
 
 		// Extended Style filtering
-		if ((exStyle & rule.ExStyle) != rule.ExStyle) {
-			continue;
-		}
+		if ((exStyle & rule.ExStyle) != rule.ExStyle) continue;
 
 		if (!rule.Manage) return false;
 	}
