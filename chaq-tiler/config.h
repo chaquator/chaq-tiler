@@ -1,5 +1,5 @@
-// Window exclude list. When managing windows, any strings which contain
-// any of the following strings as a substring will not be managed
+// Window rule list
+// Class substring, Window substring, Window style, Extended window style, Should Manage, Tag Mask, Action
 constexpr std::array<Rule, 5> window_rule_list = {
 	Rule{L"", L"", WS_DISABLED, WS_EX_TOOLWINDOW, false, 0, Rule::SingleAction::None}, // Default filtering
 	Rule{L"", L"Settings", 0, 0, false, 0, Rule::SingleAction::None}, // Hidden settings window

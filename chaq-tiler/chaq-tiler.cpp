@@ -14,10 +14,11 @@
 using namespace std::literals;
 
 // Structs and classes
+
 struct Rule {
 	enum SingleAction {
 		None,
-		Minimize,
+		Unmaximize,
 		Maximize
 	};
 
