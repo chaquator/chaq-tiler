@@ -1,0 +1,40 @@
+dwm-win32 observations
+-Receives shell messages by doing the following:
+--Make a wndclass that has a wndproc to handle messages, register it
+--Create window with the hWndParent being HWND_MESSAGE
+--call RegisterShellHookWindow with this window
+--set a global variable shellhookid to be RegisterWindowMessage("SHELLHOOK")
+--wndproc handling messages
+---in default case for messages, checks for if UINT msg == shellhookid, otherwise returns DefWindowProc
+---when msg is shellhookid, does a switch on (wParam & 0x7fff)
+-Bar window extended style has WS_EX_TOOLWINDOW
+-Gets a list of all windows at startup by calling EnumWindows and passing a callback function scan
+ which (for the first run), creates Client structs for each window
+-Hotkeys
+--regsitered using RegisterHotKey on dwmhwnd, associating an integer with the mod and key, deregistered with UnregisterHotKey
+--in the wndproc, hotkeys are processed in WM_HOTKEY case of msg switch, wParam provides the associated index,
+  ignores the lParam
+--quitting is accomplished by PostMessage(dwmhwnd, WM_CLOSE, 0, 0)
+
+General goalposts
+-Want to be able to move all windows around first
+--Looks like I can use MonitorFromWindow(window, MONITOR_DEFAULTTOPRIMARY) to differentiate between physical
+  monitors
+---Virtual desktops however...
+-Then be able to track new windows coming in (and windows being destroyed)
+--I think this will require the usage of RegisterShellHookWindow (and DeregisterShellHookWindow at the end)
+  on a window with parent of HWND_MESSAGE, then using RegisterWindowMessage(TEXT("SHELLHOOK")) to get a messsage
+  id to process in the window's wndproc function
+--Here we should work on implementing regex based filtering of class and titles for tag placement, exclusion,
+  and whether to toggle bar.
+-Work on global input
+--Can use RegisterHotkey
+--Aim for basically all of bug.n keys, which are basically dwm but w/ ability to move windows up and down the stack
+--Be sure to include a hotkey to print out window info for config
+-Then I want to make a bar to show tags
+--Should support wide characters
+--Should support horizontal, vertical, top, bottom, scale, etc
+-Then I want to explore being able to easily go between stack-based and tree-based windowing
+--Maybe not, unless I can scram more controls in, and also figure out how to navigate by cursor the subdivisions.
+-Multiple monitors
+--Choosing which desktop bar is on
