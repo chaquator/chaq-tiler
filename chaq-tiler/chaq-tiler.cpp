@@ -1,5 +1,4 @@
 #include <windows.h>
-#include <Shobjidl.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -17,51 +16,15 @@
 #include <algorithm>
 #include <iostream>
 
-// TODO: pull code out into different places
+#include "Rule.h"
+#include "config.h"
+
+#define NOMINMAX
 
 // Usings and typedefs
 using namespace std::literals;
 
 // Structs and classes
-
-struct Rule {
-	enum class SingleAction {
-		None,
-		Unmaximize,
-		Maximize
-	};
-
-	// Filtering
-
-	// Class name -- empty string -> catch all
-	std::wstring_view ClassName;
-	// Title name -- empty string -> catch all
-	std::wstring_view TitleName;
-	// Style flags -- Or them together.
-	// See https://docs.microsoft.com/en-us/windows/win32/winmsg/window-styles
-	LONG Style;
-	// Extended style flags -- Or them together.
-	//See https://docs.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
-	LONG ExStyle;
-
-	// Decisions
-
-	// Manage -- should the prorgam manage windows in this rule?
-	// NOTE: if false, attributes below will obviously not apply. If you want them to apply while
-	// also keeping the window "unmanaged", set Manage to true and Floating to false
-	bool Manage;
-
-	// Attributes
-
-	// Floating -- true -> window should NOT be moved when arranged
-	bool Floating;
-	// TagMask -- 10-bit bitstring representing which tags to place the window in when first managed
-	// All 0s -> no particular tags applied when window is first managed
-	// NOTE: 0th bit is intended to represent key 1 on the number row, and so on
-	std::bitset<10> TagMask;
-	// Action -- any specific action applied to the window when first managed
-	SingleAction Action;
-};
 
 struct Vec {
 	using vec_t = std::int32_t;
@@ -90,7 +53,7 @@ inline Vec operator *(Vec b, Scalar a) {
 	return mul(a, b);
 }
 
-// TODO: decide when to calculate this (probably in the beginning) and when to update (looks like WM_DISPLAYCHANGE message in WindowProc).
+// TODO: decide when to update this (looks like WM_DISPLAYCHANGE message in WindowProc).
 // whenever calculating, determine size based on whether taskbar is also present (will also need to account for orientation and position of it too)
 struct Desktop {
 	int margin; // Space between each window (and from the monitor edge to the window)
@@ -107,7 +70,7 @@ struct Window {
 	std::wstring title;
 	std::wstring class_name;
 
-	Window(HWND handle, std::wstring_view& title, std::wstring_view& class_name):
+	Window(HWND handle, std::wstring_view& title, std::wstring_view& class_name) :
 		handle(handle), floating(false), current_tags(0), action(Rule::SingleAction::None),
 		title(title), class_name(class_name) {
 	}
@@ -116,71 +79,75 @@ struct Window {
 // Globals
 
 namespace Globals {
+	// runtime globals
 	std::vector<Window> Windows;
+	decltype(Windows)::const_iterator WindowPartitionPoint;
+	std::size_t PrimaryStackCount;
+
+	// setup globals
 	HMONITOR PrimaryMonitor;
 	Desktop PrimaryDesktop;
 }
 
 // Function definitions
 
-// Debug utilities
-void PrintDebugString(std::string_view&& text);
-
 // Views
-template <typename Container>
-void cascade(const Container& windows, const Desktop& desktop);
+namespace Views {
+	template <typename Iterator>
+	void cascade(Iterator start, Iterator end, const Desktop& desktop);
 
-static Window ApplyRules(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
+	template <typename Container>
+	void primary_secondary_stack(const Container& windows, const Desktop& desktop);
+}
+
+static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
+static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
 static bool ShouldManageWindow(HWND);
-static BOOL CALLBACK ScanWindows(HWND, LPARAM);
+static BOOL CALLBACK CreateWindows(HWND, LPARAM);
 static HMONITOR GetPrimaryMonitorHandle();
 
-int WinMain(HINSTANCE, HINSTANCE, LPSTR, int);
+int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int);
 
-constexpr static std::size_t buflen = 128;
+constexpr std::size_t buflen = 256; // TODO: this absolutely has to go somewhere else s2g
 
-// Including config
-#include "config.h"
-
-void PrintDebugString(std::string_view&& text) {
-	std::cout << "DEBUG: " << text << std::endl;
-}
 #ifdef NDEBUG
-#define debug(s) ((void)0);
+#define debug(s) ((void)0)
 #else
-#define debug(s) PrintDebugString(s);
+#define debug(s) OutputDebugStringA(s)
 #endif
 
-template <typename Container>
-void cascade(const Container& windows, const Desktop& desktop) {
+// Cascading view, breaks cascade into multiple to make windows fit vertically if necessary
+// Mainly used for testing
+template <typename Iterator>
+void Views::cascade(Iterator start, Iterator end, const Desktop& desktop) {
 	// TODO: floating windows
 
-	using SizeType = typename Container::size_type;
-	using DiffType = typename Container::difference_type;
-	using Iterator = typename Container::const_iterator;
+	using DiffType = typename Iterator::difference_type;
 
-	if (windows.empty()) return; // Short circuit break
+	DiffType size = std::distance(start, end);
+	if (size == 0) return; // Short circuit break
 
 	// Customize cascade here
-	constexpr float window_factor = 0.35f; // Window will be 35% dimension of screen
+	constexpr float window_factor = 0.5f; // Window will be 50% dimension of screen
 	Vec cascade_delta = {
-		static_cast<Vec::vec_t>(0.2f * static_cast<float>(desktop.margin)), // Less x increase with every y increase
-		desktop.margin
+		// static_cast<Vec::vec_t>(0.2f * static_cast<float>(desktop.margin)), // Less x increase with every y increase
+		max(10, desktop.margin),
+		max(10, desktop.margin)
 	};
 
 	Vec window_dimensions = window_factor * desktop.monitor_dimensions;
 
 	// Calculate, accounting for margin, how many cascades are needed for the screen
 	Vec::vec_t working_desktop_height = desktop.monitor_dimensions.y - 2 * cascade_delta.y - window_dimensions.y;
-	Vec::vec_t cascade_total_height = (static_cast<Vec::vec_t>(windows.size() - 1) * cascade_delta.y); // cascade height only considering the margin
+	Vec::vec_t cascade_total_height = (static_cast<Vec::vec_t>(size - 1) * cascade_delta.y); // cascade height only considering the margin
 	std::size_t cascades = static_cast<std::size_t>(cascade_total_height / working_desktop_height); // amount of cascades
-	std::size_t cascade_leftover = static_cast<std::size_t>(cascade_total_height % working_desktop_height); // remaining height
+	// std::size_t cascade_leftover = static_cast<std::size_t>(cascade_total_height % working_desktop_height); // remaining height
 
 	// # of windows to draw = ceil(desktop_height / window_height)
-	SizeType windows_per_full_cascade = static_cast<SizeType>((working_desktop_height / cascade_delta.y)) + ((working_desktop_height % cascade_delta.y != 0) ? 1 : 0);
+	DiffType windows_per_full_cascade = static_cast<DiffType>((working_desktop_height / cascade_delta.y)) + ((working_desktop_height % cascade_delta.y != 0) ? 1 : 0);
 
-	auto single_cascade = [&] (SizeType amount, Iterator start, std::size_t current_cascade) {
-		for (SizeType index = 0; index < amount; ++index, ++start) {
+	auto single_cascade = [&desktop, &window_dimensions, &cascade_delta](DiffType amount, Iterator start, std::size_t current_cascade) {
+		for (DiffType index = 0; index < amount; ++index, ++start) {
 			/*
 			Point upper_left = { desktop.margin, desktop.margin };
 			Point cascade_offset = { static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x), 0 };
@@ -189,8 +156,8 @@ void cascade(const Container& windows, const Desktop& desktop) {
 			Point pos = base + travel;
 			*/
 			Vec pos = {
-				static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x) + static_cast<Vec::vec_t>(index) * cascade_delta.x,
-				static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(index) * cascade_delta.y
+				desktop.monitor_upper_left.x + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x) + static_cast<Vec::vec_t>(index) * cascade_delta.x,
+				desktop.monitor_upper_left.y + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(index) * cascade_delta.y
 			};
 
 			::SetWindowPos(start->handle,
@@ -204,7 +171,7 @@ void cascade(const Container& windows, const Desktop& desktop) {
 
 	// Full cascades
 	std::size_t current_cascade = 0;
-	Iterator current_window = windows.cbegin();
+	Iterator current_window = start;
 	while (current_cascade < cascades) {
 		single_cascade(windows_per_full_cascade, current_window, current_cascade);
 
@@ -213,42 +180,62 @@ void cascade(const Container& windows, const Desktop& desktop) {
 	}
 
 	// Leftovers
-	if (std::distance(current_window, windows.cend()) > 0) {
-		assert(std::distance(current_window, windows.cend()) < static_cast<DiffType>(windows_per_full_cascade));
-		single_cascade(std::distance(current_window, windows.cend()), current_window, current_cascade);
-	}
+	DiffType remaining = std::distance(current_window, end);
+	assert(remaining <= windows_per_full_cascade);
+	single_cascade(remaining, current_window, current_cascade);
 }
 
-Window ApplyRules(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name) {
-	Window new_window { window, title, class_name };
-	for (auto& rule : Config::WindowRuleList) {
-		if (!rule.Manage) continue; // Skip rules that exclude windows
+// Traditional dwm-like stack
+template <typename Container>
+void Views::primary_secondary_stack(const Container& windows, const Desktop& desktop) {
+	using SizeType = typename Container::size_type;
+	using DiffType = typename Container::difference_type;
+	using Iterator = typename Container::const_iterator;
+}
 
-		// Class name filtering
-		if (!rule.ClassName.empty() && class_name.find(rule.ClassName) == std::string_view::npos) continue;
+// Given the attributes, does the given rule apply
+bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name) {
+	// Class name filtering (substring search)
+	if (!rule.ClassName.empty() && class_name.find(rule.ClassName) == std::string_view::npos) return false;
 
-		// Title name filtering
-		if (!rule.TitleName.empty() && title.find(rule.TitleName) == std::string_view::npos) continue;
+	// Title name filtering (substring search)
+	if (!rule.TitleName.empty() && title.find(rule.TitleName) == std::string_view::npos) return false;
 
-		// Style filtering
-		if ((style & rule.Style) != rule.Style)	continue;
+	// Style filtering (all flags in rule's style are present in the given style)
+	if ((style & rule.Style) != rule.Style)	return false;
 
-		// Extended Style filtering
-		if ((exStyle & rule.ExStyle) != rule.ExStyle) continue;
+	// Extended Style filtering (ditto)
+	if ((exStyle & rule.ExStyle) != rule.ExStyle) return false;
 
+	return true;
+}
+
+// Create new window and apply all rules to it given its attributes
+Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name) {
+	Window new_window{ window, title, class_name };
+	for (const auto& rule : Config::WindowRuleList) {
+		// Skip rules that does not manage any windows
+		if (!rule.Manage) continue;
+
+		// Skip if rule does not apply
+		if (!DoesRuleApply(rule, style, exStyle, title, class_name)) continue;
+
+		// Otherwise, apply rules
+		// Tag masks will be OR'd together
 		new_window.floating = rule.Floating;
 		new_window.current_tags |= rule.TagMask;
 		new_window.action = rule.Action;
 	}
+
 	return new_window;
 }
 
-// Definitions
+// Given the attributes, should this window be managed
 bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name) {
 	// TODO: virtual desktop filtering
 
 	// Empty window name filtering
-	if (GetWindowTextLength(window) == 0) return false;
+	if (GetWindowTextLengthW(window) == 0) return false;
 
 	// Visibility Filtering
 	if (!IsWindowVisible(window)) return false;
@@ -259,18 +246,8 @@ bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view
 		if (monitor != Globals::PrimaryMonitor) return false;
 	}
 
-	bool should_manage = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), [&] (auto& rule) -> bool {
-		// Class name filtering
-		if (!rule.ClassName.empty() && class_name.find(rule.ClassName) == std::string_view::npos) return false;
-
-		// Title name filtering
-		if (!rule.TitleName.empty() && title.find(rule.TitleName) == std::string_view::npos) return false;
-
-		// Style filtering
-		if ((style & rule.Style) != rule.Style)	return false;
-
-		// Extended Style filtering
-		if ((exStyle & rule.ExStyle) != rule.ExStyle) return false;
+	bool should_manage = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), [&style, &exStyle, &title, &class_name](auto& rule) -> bool {
+		if (!DoesRuleApply(rule, style, exStyle, title, class_name)) return false;
 
 		// Manage window (return true) if rule says window should be managed
 		return rule.Manage;
@@ -279,45 +256,44 @@ bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view
 	return should_manage;
 }
 
-BOOL CALLBACK ScanWindows(HWND window, LPARAM) {
+BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 	// TODO: make WS_MAXIMIZE windows unmaximize, try ShowWindow(window, SW_RESTORE)
 	// Attributes
-	LONG style = GetWindowLong(window, GWL_STYLE);
+	LONG style = GetWindowLongW(window, GWL_STYLE);
 	if (style == 0) {
 		debug("Style 0");
 		// TODO: Error
-		return false;
+		return TRUE;
 	}
 
-	LONG exStyle = GetWindowLong(window, GWL_EXSTYLE);
+	LONG exStyle = GetWindowLongW(window, GWL_EXSTYLE);
 	if (exStyle == 0) {
 		debug("ExStyle 0");
 		// TODO: Error
-		return false;
+		return TRUE;
 	}
 
-	TCHAR title_buf [buflen];
-	int len = GetWindowText(window, title_buf, buflen);
+	TCHAR title_buf[buflen];
+	int len = GetWindowTextW(window, title_buf, buflen);
 	if (len == 0) {
 		debug("Title len 0");
 		// TODO: Error
-		return false;
+		return TRUE;
 	}
-	std::wstring_view title { title_buf, static_cast<std::size_t>(len) };
+	std::wstring_view title{ title_buf, static_cast<std::size_t>(len) };
 
-	TCHAR class_buf [buflen];
-	len = GetClassName(window, class_buf, buflen);
+	TCHAR class_buf[buflen];
+	len = GetClassNameW(window, class_buf, buflen);
 	if (len == 0) {
 		debug("Class len 0");
 		// TODO: Error
-		return false;
+		return TRUE;
 	}
-	std::wstring_view class_name { class_buf, static_cast<std::size_t>(len) };
+	std::wstring_view class_name{ class_buf, static_cast<std::size_t>(len) };
 
 	if (ShouldManageWindow(window, style, exStyle, title, class_name)) {
-		std::wcout << title << std::endl;
+		Window new_window = GenerateWindow(window, style, exStyle, title, class_name);
 
-		Window new_window = ApplyRules(window, style, exStyle, title, class_name);
 		Globals::Windows.push_back(std::move(new_window));
 	}
 
@@ -325,40 +301,80 @@ BOOL CALLBACK ScanWindows(HWND window, LPARAM) {
 }
 
 HMONITOR GetPrimaryMonitorHandle() {
-	return MonitorFromPoint(POINT { 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+	return MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
 }
 
-int WinMain(HINSTANCE Instance, HINSTANCE, LPSTR, int CmdShow) {
-	FILE* fDummy;
+int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
+	/*FILE* fDummy;
 	AllocConsole();
-	freopen_s(&fDummy, "CONOUT$", "w", stdout);
+	freopen_s(&fDummy, "CONOUT$", "w", stdout);*/
 
-	// Setup desktop
+	// Setup globals
+	// Primary monitor
 	Globals::PrimaryMonitor = GetPrimaryMonitorHandle();
 	MONITORINFO monitor_info = {
 		.cbSize = sizeof(MONITORINFO)
 	};
-	if (!GetMonitorInfo(Globals::PrimaryMonitor, &monitor_info)) {
-		// TODO: Error
-		debug("Failed to get primary monitor")
-			return EXIT_FAILURE;
+	if (!GetMonitorInfoW(Globals::PrimaryMonitor, &monitor_info)) {
+		debug("Failed to get primary monitor");
+		return EXIT_FAILURE;
 	}
-	Globals::PrimaryDesktop = Desktop {
-		.margin = Config::DefaultMargin,
-		.monitor_upper_left = Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
-		.monitor_dimensions = Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
+	// Primary desktop rectangle
+	Globals::PrimaryDesktop = Desktop{
+		Config::DefaultMargin,
+		Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
+		Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
 	};
+	// Primary stack count
+	Globals::PrimaryStackCount = Config::DefaultPrimaryStackCount;
 
-	EnumWindows(ScanWindows, NULL);
+	// Set up windows
+	EnumWindows(CreateWindows, NULL);
+	// Apply window actions to all windows
+	std::for_each(Globals::Windows.cbegin(), Globals::Windows.cend(), [](auto& window) {
+		switch (window.action) {
+		case Rule::SingleAction::None: break;
+		case Rule::SingleAction::Unmaximize:
+		{
+			ShowWindow(window.handle, SW_SHOWNORMAL);
+		} break;
+		case Rule::SingleAction::Maximize:
+		{
+			ShowWindow(window.handle, SW_SHOWMAXIMIZED);
+		} break;
+		}
+	});
+	// Partition windows between non-floating and floating
+	Globals::WindowPartitionPoint = std::partition(Globals::Windows.begin(), Globals::Windows.end(), [](auto& window) -> bool {
+		return !window.floating;
+	});
 
-	cascade(Globals::Windows, Globals::PrimaryDesktop);
+	// Single view call for now
+	Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
 
-	while (true) {
-		if (GetAsyncKeyState(VK_NUMPAD0)) break;
-	}
-
-	fclose(fDummy);
-	FreeConsole();
+	/*fclose(fDummy);
+	FreeConsole();*/
 
 	return 0;
 }
+
+/*
+	Current TODO: implement runtime data structure storing all managed windows.
+	[X] Will be an std::vector of windows in stack order, partitioned as:
+		[ not floating windows | floating windows ]
+	[X] Come up with a rule that manages a window while also letting it be floating (prolly mpv)
+	[X] At the end of all windows being created partition by floating, store iterator to first floating window globally (will use and change during runtime in the future)
+	[X] Modify current cascading view to accept start and end iterator instead of whole vector
+	[ ] test
+
+	Future notes:
+	When hotkeys are in, be sure cursor doesn't enter into floating windows partition, instead loops back.
+		There definitely should be a way to change focus too. Maybe even change cursor position.
+			SetFocus? SetForegroundWindow? Investigate dwm-win32 and bug.n
+
+	When focus tracking is in, be sure cursor does enter floating partition based on focus
+
+	In the future, there will be an arising issue of whether the tiler will be capable
+	of tracking windows as their attributes change and applying new rules accordingly.
+
+*/

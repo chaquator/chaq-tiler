@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.30204.135
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "chaq-tiler", "chaq-tiler\chaq-tiler.vcxproj", "{3F7E1D15-3CA4-4059-959C-CB79A22DBEAF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "chaq-win-traits", "chaq-win-traits\chaq-win-traits.vcxproj", "{C80C5379-5495-44AD-96F2-63834BD30BDA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -20,6 +22,14 @@ Global
 		{3F7E1D15-3CA4-4059-959C-CB79A22DBEAF}.Release|x64.Build.0 = Release|x64
 		{3F7E1D15-3CA4-4059-959C-CB79A22DBEAF}.Release|x86.ActiveCfg = Release|Win32
 		{3F7E1D15-3CA4-4059-959C-CB79A22DBEAF}.Release|x86.Build.0 = Release|Win32
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Debug|x64.ActiveCfg = Debug|x64
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Debug|x64.Build.0 = Debug|x64
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Debug|x86.ActiveCfg = Debug|Win32
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Debug|x86.Build.0 = Debug|Win32
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Release|x64.ActiveCfg = Release|x64
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Release|x64.Build.0 = Release|x64
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Release|x86.ActiveCfg = Release|Win32
+		{C80C5379-5495-44AD-96F2-63834BD30BDA}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

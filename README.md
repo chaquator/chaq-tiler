@@ -7,6 +7,7 @@ chaq-tiler is an MIT licensed, C++ based, dwm inspired stack-based dynamic windo
 - [ ] create stack and move windows accordingly
 - [ ] track new windows and windows being closed
 - [ ] hotkeys, including moving along the stack and tag selection
+- [ ] tracking window focus
 - [ ] graphical bar and all its customization
 - [ ] multiple monitor support
 
