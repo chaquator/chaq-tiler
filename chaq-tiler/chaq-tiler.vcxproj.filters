@@ -26,5 +26,8 @@
     <ClInclude Include="Rule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Vec.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

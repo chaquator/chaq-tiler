@@ -1,22 +1,20 @@
 #include <windows.h>
 
 #include <cstddef>
-#include <cstdint>
 #include <type_traits>
 
 #include <string>
 #include <string_view>
 #include <vector>
-#include <array>
 #include <bitset>
 #include <iterator>
 
 #include <cassert>
 
 #include <algorithm>
-#include <iostream>
 
 #include "Rule.h"
+#include "Vec.h"
 #include "config.h"
 
 #define NOMINMAX
@@ -25,33 +23,6 @@
 using namespace std::literals;
 
 // Structs and classes
-
-struct Vec {
-	using vec_t = std::int32_t;
-	vec_t x;
-	vec_t y;
-};
-inline Vec operator +(Vec a, Vec b) {
-	return { a.x + b.x, a.y + b.y };
-}
-inline Vec operator -(Vec a, Vec b) {
-	return { a.x - b.x, a.y - b.y };
-}
-template <typename Scalar>
-inline static Vec mul(Scalar scalar, Vec p) {
-	return {
-		static_cast<Vec::vec_t>(scalar * static_cast<Scalar>(p.x)),
-		static_cast<Vec::vec_t>(scalar * static_cast<Scalar>(p.y))
-	};
-}
-template <typename Scalar>
-inline Vec operator *(Scalar a, Vec b) {
-	return mul(a, b);
-}
-template <typename Scalar>
-inline Vec operator *(Vec b, Scalar a) {
-	return mul(a, b);
-}
 
 // TODO: decide when to update this (looks like WM_DISPLAYCHANGE message in WindowProc).
 // whenever calculating, determine size based on whether taskbar is also present (will also need to account for orientation and position of it too)
@@ -67,6 +38,7 @@ struct Window {
 	std::bitset<10> current_tags;
 	Rule::SingleAction action;
 
+	// TODO: consider whether these really need to be here, we can just get the title whenever needed right
 	std::wstring title;
 	std::wstring class_name;
 
@@ -82,7 +54,7 @@ namespace Globals {
 	// runtime globals
 	std::vector<Window> Windows;
 	decltype(Windows)::const_iterator WindowPartitionPoint;
-	std::size_t PrimaryStackCount;
+	Vec PrimaryStackDimensions = Config::DefaultPrimaryStackDimensions;
 
 	// setup globals
 	HMONITOR PrimaryMonitor;
@@ -92,13 +64,16 @@ namespace Globals {
 // Function definitions
 
 // Views
-namespace Views {
-	template <typename Iterator>
-	void cascade(Iterator start, Iterator end, const Desktop& desktop);
+class Views {
+	// TODO: helper view functions here, like tile-strip and area-monocle
 
-	template <typename Container>
-	void primary_secondary_stack(const Container& windows, const Desktop& desktop);
-}
+public:
+	template <typename Iterator>
+	static void cascade(const Iterator start, const Iterator end, const Desktop& desktop);
+
+	template <typename Iterator>
+	static void primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop);
+};
 
 static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
 static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
@@ -113,16 +88,14 @@ constexpr std::size_t buflen = 256; // TODO: this absolutely has to go somewhere
 #ifdef NDEBUG
 #define debug(s) ((void)0)
 #else
-#define debug(s) OutputDebugStringA(s)
+#define debug(s) OutputDebugStringA(s "\n")
 #endif
 
 // Cascading view, breaks cascade into multiple to make windows fit vertically if necessary
 // Mainly used for testing
 template <typename Iterator>
-void Views::cascade(Iterator start, Iterator end, const Desktop& desktop) {
-	// TODO: floating windows
-
-	using DiffType = typename Iterator::difference_type;
+void Views::cascade(const Iterator start, const Iterator end, const Desktop& desktop) {
+	using DiffType = typename std::iterator_traits<Iterator>::difference_type;
 
 	DiffType size = std::distance(start, end);
 	if (size == 0) return; // Short circuit break
@@ -186,11 +159,9 @@ void Views::cascade(Iterator start, Iterator end, const Desktop& desktop) {
 }
 
 // Traditional dwm-like stack
-template <typename Container>
-void Views::primary_secondary_stack(const Container& windows, const Desktop& desktop) {
-	using SizeType = typename Container::size_type;
-	using DiffType = typename Container::difference_type;
-	using Iterator = typename Container::const_iterator;
+template <typename Iterator>
+void Views::primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop) {
+	using DiffType = typename std::iterator_traits<Iterator>::difference_type;
 }
 
 // Given the attributes, does the given rule apply
@@ -246,14 +217,11 @@ bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view
 		if (monitor != Globals::PrimaryMonitor) return false;
 	}
 
-	bool should_manage = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), [&style, &exStyle, &title, &class_name](auto& rule) -> bool {
-		if (!DoesRuleApply(rule, style, exStyle, title, class_name)) return false;
-
-		// Manage window (return true) if rule says window should be managed
-		return rule.Manage;
+	bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), [&style, &exStyle, &title, &class_name](const auto& rule) -> bool {
+		return DoesRuleApply(rule, style, exStyle, title, class_name) && !rule.Manage;
 	});
 
-	return should_manage;
+	return !should_skip;
 }
 
 BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
@@ -292,9 +260,7 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 	std::wstring_view class_name{ class_buf, static_cast<std::size_t>(len) };
 
 	if (ShouldManageWindow(window, style, exStyle, title, class_name)) {
-		Window new_window = GenerateWindow(window, style, exStyle, title, class_name);
-
-		Globals::Windows.push_back(std::move(new_window));
+		Globals::Windows.push_back(GenerateWindow(window, style, exStyle, title, class_name));
 	}
 
 	return TRUE;
@@ -305,10 +271,6 @@ HMONITOR GetPrimaryMonitorHandle() {
 }
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
-	/*FILE* fDummy;
-	AllocConsole();
-	freopen_s(&fDummy, "CONOUT$", "w", stdout);*/
-
 	// Setup globals
 	// Primary monitor
 	Globals::PrimaryMonitor = GetPrimaryMonitorHandle();
@@ -325,8 +287,6 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
 		Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
 	};
-	// Primary stack count
-	Globals::PrimaryStackCount = Config::DefaultPrimaryStackCount;
 
 	// Set up windows
 	EnumWindows(CreateWindows, NULL);
@@ -352,20 +312,16 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// Single view call for now
 	Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
 
-	/*fclose(fDummy);
-	FreeConsole();*/
-
 	return 0;
 }
 
 /*
-	Current TODO: implement runtime data structure storing all managed windows.
-	[X] Will be an std::vector of windows in stack order, partitioned as:
-		[ not floating windows | floating windows ]
-	[X] Come up with a rule that manages a window while also letting it be floating (prolly mpv)
-	[X] At the end of all windows being created partition by floating, store iterator to first floating window globally (will use and change during runtime in the future)
-	[X] Modify current cascading view to accept start and end iterator instead of whole vector
-	[ ] test
+	Current TODO: dwm like primary-seocndary stack
+	- [ ] Create tile-strip function, drawns range of windows tiled next to each other (accounts for margins and all)
+			within an area, parameterized for both horizontal and verticla orientation
+		- Consider parameterizing reverse of drawing too (for all levels)
+	- [ ] Create monocle function, piles windows on top of each other (bottom up)
+	- [ ] Use tile-strip & monocle to draw primary stack, secondary stack
 
 	Future notes:
 	When hotkeys are in, be sure cursor doesn't enter into floating windows partition, instead loops back.

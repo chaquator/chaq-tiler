@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClInclude Include="config.h" />
     <ClInclude Include="Rule.h" />
+    <ClInclude Include="Vec.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
