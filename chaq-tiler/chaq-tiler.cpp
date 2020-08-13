@@ -119,7 +119,7 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 	// # of windows to draw = ceil(desktop_height / window_height)
 	DiffType windows_per_full_cascade = static_cast<DiffType>((working_desktop_height / cascade_delta.y)) + ((working_desktop_height % cascade_delta.y != 0) ? 1 : 0);
 
-	auto single_cascade = [&desktop, &window_dimensions, &cascade_delta](DiffType amount, Iterator start, std::size_t current_cascade) {
+	auto single_cascade = [&desktop, &window_dimensions, &cascade_delta] (DiffType amount, Iterator start, std::size_t current_cascade) {
 		for (DiffType index = 0; index < amount; ++index, ++start) {
 			/*
 			Point upper_left = { desktop.margin, desktop.margin };
@@ -183,7 +183,7 @@ bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view
 
 // Create new window and apply all rules to it given its attributes
 Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name) {
-	Window new_window{ window, title, class_name };
+	Window new_window { window, title, class_name };
 	for (const auto& rule : Config::WindowRuleList) {
 		// Skip rules that does not manage any windows
 		if (!rule.Manage) continue;
@@ -217,7 +217,7 @@ bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view
 		if (monitor != Globals::PrimaryMonitor) return false;
 	}
 
-	bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), [&style, &exStyle, &title, &class_name](const auto& rule) -> bool {
+	bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), [&style, &exStyle, &title, &class_name] (const auto& rule) -> bool {
 		return DoesRuleApply(rule, style, exStyle, title, class_name) && !rule.Manage;
 	});
 
@@ -248,7 +248,7 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 		// TODO: Error
 		return TRUE;
 	}
-	std::wstring_view title{ title_buf, static_cast<std::size_t>(len) };
+	std::wstring_view title { title_buf, static_cast<std::size_t>(len) };
 
 	TCHAR class_buf[buflen];
 	len = GetClassNameW(window, class_buf, buflen);
@@ -257,9 +257,10 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 		// TODO: Error
 		return TRUE;
 	}
-	std::wstring_view class_name{ class_buf, static_cast<std::size_t>(len) };
+	std::wstring_view class_name { class_buf, static_cast<std::size_t>(len) };
 
 	if (ShouldManageWindow(window, style, exStyle, title, class_name)) {
+		// TOOD: figure out if this is proper move semantics (doesn't need an std::move)
 		Globals::Windows.push_back(GenerateWindow(window, style, exStyle, title, class_name));
 	}
 
@@ -267,7 +268,7 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 }
 
 HMONITOR GetPrimaryMonitorHandle() {
-	return MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+	return MonitorFromPoint(POINT { 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
 }
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
@@ -282,7 +283,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		return EXIT_FAILURE;
 	}
 	// Primary desktop rectangle
-	Globals::PrimaryDesktop = Desktop{
+	Globals::PrimaryDesktop = Desktop {
 		Config::DefaultMargin,
 		Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
 		Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
@@ -291,23 +292,21 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// Set up windows
 	EnumWindows(CreateWindows, NULL);
 	// Apply window actions to all windows
-	std::for_each(Globals::Windows.cbegin(), Globals::Windows.cend(), [](auto& window) {
+	std::for_each(Globals::Windows.cbegin(), Globals::Windows.cend(), [] (auto& window) {
 		switch (window.action) {
-		case Rule::SingleAction::None: break;
-		case Rule::SingleAction::Unmaximize:
-		{
-			ShowWindow(window.handle, SW_SHOWNORMAL);
-		} break;
-		case Rule::SingleAction::Maximize:
-		{
-			ShowWindow(window.handle, SW_SHOWMAXIMIZED);
-		} break;
+			case Rule::SingleAction::None: break;
+			case Rule::SingleAction::Unmaximize:
+			{
+				ShowWindow(window.handle, SW_SHOWNORMAL);
+			} break;
+			case Rule::SingleAction::Maximize:
+			{
+				ShowWindow(window.handle, SW_SHOWMAXIMIZED);
+			} break;
 		}
 	});
 	// Partition windows between non-floating and floating
-	Globals::WindowPartitionPoint = std::partition(Globals::Windows.begin(), Globals::Windows.end(), [](auto& window) -> bool {
-		return !window.floating;
-	});
+	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(), [] (auto& window) -> bool { return !window.floating; });
 
 	// Single view call for now
 	Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
@@ -316,14 +315,26 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 }
 
 /*
-	Current TODO: dwm like primary-seocndary stack
-	- [ ] Create tile-strip function, drawns range of windows tiled next to each other (accounts for margins and all)
-			within an area, parameterized for both horizontal and verticla orientation
-		- Consider parameterizing reverse of drawing too (for all levels)
-	- [ ] Create monocle function, piles windows on top of each other (bottom up)
-	- [ ] Use tile-strip & monocle to draw primary stack, secondary stack
+	implement runtime data structure storing all managed windows.
+	[X] Will be an std::vector of windows in stack order, partitioned as:
+		[ not floating windows | floating windows ]
+	[X] Come up with a rule that manages a window while also letting it be floating (prolly mpv)
+	[X] At the end of all windows being created partition by floating, store iterator to
+		first floating window globally
+	[X] Modify current cascading view to accept start and end iterator instead of whole vector
+	[X] test
+
+	dwm like primary-seocndary stack
+	[ ] Create tile-strip function, drawns range of windows tiled next to each other (accounts for margins and all)
+		within an area, parameterized for both horizontal and verticla orientation
+			Consider parameterizing reverse of drawing too (for all levels)
+	[ ] Create monocle function, piles windows on top of each other (bottom up)
+	[ ] Use tile-strip & monocle to draw primary stack, secondary stack
 
 	Future notes:
+	This only matters for the cascading and monocle view, consider setting the user's
+	foucs to the correct window if just adjusting the windows is not focusing correctly
+
 	When hotkeys are in, be sure cursor doesn't enter into floating windows partition, instead loops back.
 		There definitely should be a way to change focus too. Maybe even change cursor position.
 			SetFocus? SetForegroundWindow? Investigate dwm-win32 and bug.n
