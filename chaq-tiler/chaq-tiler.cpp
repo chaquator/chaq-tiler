@@ -80,6 +80,7 @@ static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring
 static bool ShouldManageWindow(HWND);
 static BOOL CALLBACK CreateWindows(HWND, LPARAM);
 static HMONITOR GetPrimaryMonitorHandle();
+void ApplyAction(const Window&);
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int);
 
@@ -260,15 +261,30 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 	std::wstring_view class_name { class_buf, static_cast<std::size_t>(len) };
 
 	if (ShouldManageWindow(window, style, exStyle, title, class_name)) {
-		// TOOD: figure out if this is proper move semantics (doesn't need an std::move)
-		Globals::Windows.push_back(GenerateWindow(window, style, exStyle, title, class_name));
+		Window new_window = GenerateWindow(window, style, exStyle, title, class_name);
+		ApplyAction(new_window);
+		Globals::Windows.push_back(std::move(new_window));
 	}
-
+	
 	return TRUE;
 }
 
 HMONITOR GetPrimaryMonitorHandle() {
 	return MonitorFromPoint(POINT { 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+}
+
+void ApplyAction(const Window& window) {
+	switch (window.action) {
+		case Rule::SingleAction::None: break;
+		case Rule::SingleAction::Unmaximize:
+		{
+			ShowWindow(window.handle, SW_SHOWNORMAL);
+		} break;
+		case Rule::SingleAction::Maximize:
+		{
+			ShowWindow(window.handle, SW_SHOWMAXIMIZED);
+		} break;
+	}
 }
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
@@ -291,20 +307,6 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	// Set up windows
 	EnumWindows(CreateWindows, NULL);
-	// Apply window actions to all windows
-	std::for_each(Globals::Windows.cbegin(), Globals::Windows.cend(), [] (auto& window) {
-		switch (window.action) {
-			case Rule::SingleAction::None: break;
-			case Rule::SingleAction::Unmaximize:
-			{
-				ShowWindow(window.handle, SW_SHOWNORMAL);
-			} break;
-			case Rule::SingleAction::Maximize:
-			{
-				ShowWindow(window.handle, SW_SHOWMAXIMIZED);
-			} break;
-		}
-	});
 	// Partition windows between non-floating and floating
 	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(), [] (auto& window) -> bool { return !window.floating; });
 
@@ -330,6 +332,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 			Consider parameterizing reverse of drawing too (for all levels)
 	[ ] Create monocle function, piles windows on top of each other (bottom up)
 	[ ] Use tile-strip & monocle to draw primary stack, secondary stack
+	[ ] test
 
 	Future notes:
 	This only matters for the cascading and monocle view, consider setting the user's
