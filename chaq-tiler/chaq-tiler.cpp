@@ -13,8 +13,10 @@
 
 #include <algorithm>
 
+#include "Desktop.h"
 #include "Rule.h"
 #include "Vec.h"
+#include "Views.h"
 #include "config.h"
 
 #define NOMINMAX
@@ -23,13 +25,6 @@
 using namespace std::literals;
 
 // Structs and classes
-
-// TODO: decide when to update this (looks like WM_DISPLAYCHANGE message in WindowProc).
-// whenever calculating, determine size based on whether taskbar is also present (will also need to account for orientation and position of it too)
-struct Desktop {
-	int margin; // Space between each window (and from the monitor edge to the window)
-	Rect rect;
-};
 
 struct Window {
 	HWND handle;
@@ -62,18 +57,6 @@ namespace Globals {
 
 // Function definitions
 
-// Views
-class Views {
-	// TODO: helper view functions here, like tile-strip and area-monocle
-
-public:
-	template <typename Iterator>
-	static void cascade(const Iterator start, const Iterator end, const Desktop& desktop);
-
-	template <typename Iterator>
-	static void primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop);
-};
-
 static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
 static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
 static bool ShouldManageWindow(HWND);
@@ -90,79 +73,6 @@ constexpr std::size_t buflen = 256; // TODO: this absolutely has to go somewhere
 #else
 #define debug(s) OutputDebugStringA(s "\n")
 #endif
-
-// Cascading view, breaks cascade into multiple to make windows fit vertically if necessary
-// Mainly used for testing
-template <typename Iterator>
-void Views::cascade(const Iterator start, const Iterator end, const Desktop& desktop) {
-	using DiffType = typename std::iterator_traits<Iterator>::difference_type;
-
-	DiffType size = std::distance(start, end);
-	if (size == 0) return; // Short circuit break
-
-	// Customize cascade here
-	constexpr float window_factor = 0.5f; // Window will be 50% dimension of screen
-	Vec cascade_delta = {
-		// static_cast<Vec::vec_t>(0.2f * static_cast<float>(desktop.margin)), // Less x increase with every y increase
-		max(10, desktop.margin),
-		max(10, desktop.margin)
-	};
-
-	Vec window_dimensions = window_factor * desktop.rect.dimensions;
-
-	// Calculate, accounting for margin, how many cascades are needed for the screen
-	Vec::vec_t working_desktop_height = desktop.rect.dimensions.y - 2 * cascade_delta.y - window_dimensions.y;
-	Vec::vec_t cascade_total_height = (static_cast<Vec::vec_t>(size - 1) * cascade_delta.y); // cascade height only considering the margin
-	std::size_t cascades = static_cast<std::size_t>(cascade_total_height / working_desktop_height); // amount of cascades
-	// std::size_t cascade_leftover = static_cast<std::size_t>(cascade_total_height % working_desktop_height); // remaining height
-
-	// # of windows to draw = ceil(desktop_height / window_height)
-	DiffType windows_per_full_cascade = static_cast<DiffType>((working_desktop_height / cascade_delta.y)) + ((working_desktop_height % cascade_delta.y != 0) ? 1 : 0);
-
-	auto single_cascade = [&desktop, &window_dimensions, &cascade_delta] (DiffType amount, Iterator start, std::size_t current_cascade) {
-		for (DiffType index = 0; index < amount; ++index, ++start) {
-			/*
-			Point upper_left = desktop.rect.upper_left + { desktop.margin, desktop.margin };
-			Point cascade_offset = { static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x), 0 };
-			Point base = upper_left + cascade_offset;
-			Point travel = static_cast<Vec::vec_t>(index) * cascade_delta;
-			Point pos = base + travel;
-			*/
-			Vec pos = {
-				desktop.rect.upper_left.x + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x) + static_cast<Vec::vec_t>(index) * cascade_delta.x,
-				desktop.rect.upper_left.y + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(index) * cascade_delta.y
-			};
-
-			::SetWindowPos(start->handle,
-				HWND_BOTTOM,
-				static_cast<int>(pos.x), static_cast<int>(pos.y),
-				static_cast<int>(window_dimensions.x), static_cast<int>(window_dimensions.y),
-				SWP_NOACTIVATE
-			);
-		}
-	};
-
-	// Full cascades
-	std::size_t current_cascade = 0;
-	Iterator current_window = start;
-	while (current_cascade < cascades) {
-		single_cascade(windows_per_full_cascade, current_window, current_cascade);
-
-		current_window += windows_per_full_cascade;
-		++current_cascade;
-	}
-
-	// Leftovers
-	DiffType remaining = std::distance(current_window, end);
-	assert(remaining <= windows_per_full_cascade);
-	single_cascade(remaining, current_window, current_cascade);
-}
-
-// Traditional dwm-like stack
-template <typename Iterator>
-void Views::primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop) {
-	using DiffType = typename std::iterator_traits<Iterator>::difference_type;
-}
 
 // Given the attributes, does the given rule apply
 bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name) {
@@ -264,7 +174,7 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 		ApplyAction(new_window);
 		Globals::Windows.push_back(std::move(new_window));
 	}
-	
+
 	return TRUE;
 }
 
@@ -328,12 +238,17 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	[X] test
 
 	dwm like primary-seocndary stack
-	[ ] Create tile-strip function, drawns range of windows tiled next to each other (accounts for margins and all)
+	[X] Create tile-strip function, drawns range of windows tiled next to each other (accounts for margins and all)
 		within an area, parameterized for both horizontal and verticla orientation
 			Consider parameterizing reverse of drawing too (for all levels)
+	[ ] Test tile-strip
 	[ ] Create monocle function, piles windows on top of each other (bottom up)
 	[ ] Use tile-strip & monocle to draw primary stack, secondary stack
 	[ ] test
+
+	move window-related functions out into seperate file
+	[ ] set window position function
+	[ ] the rest
 
 	Future notes:
 	This only matters for the cascading and monocle view, consider setting the user's

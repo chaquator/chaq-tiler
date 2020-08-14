@@ -29,5 +29,11 @@
     <ClInclude Include="Vec.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Views.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Desktop.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <type_traits>
 
@@ -18,10 +20,7 @@ struct Vec {
 		return *this;
 	}
 
-	template <typename T,
-		typename = typename std::enable_if_t<
-			std::is_integral_v<T> || std::is_floating_point_v<T>
-		>>
+	template <typename T, typename = typename std::enable_if_t<std::is_integral_v<T> || std::is_floating_point_v<T>>>
 	Vec& operator *=(T rhs) {
 		this->x = static_cast<vec_t>(rhs * static_cast<T>(this->x));
 		this->y = static_cast<vec_t>(rhs * static_cast<T>(this->y));
@@ -34,17 +33,11 @@ inline Vec operator +(Vec lhs, const Vec& rhs) {
 inline Vec operator -(Vec lhs, const Vec& rhs) {
 	return (lhs -= rhs);
 }
-template <typename T,
-	typename = typename std::enable_if_t<
-	std::is_integral_v<T> || std::is_floating_point_v<T>
-	>>
+template <typename T, typename = typename std::enable_if_t<std::is_integral_v<T> || std::is_floating_point_v<T>>>
 inline Vec operator *(T a, Vec b) {
 	return (b *= a);
 }
-template <typename T,
-	typename = typename std::enable_if_t<
-	std::is_integral_v<T> || std::is_floating_point_v<T>
-	>>
+template <typename T, typename = typename std::enable_if_t<std::is_integral_v<T> || std::is_floating_point_v<T>>>
 inline Vec operator *(Vec b, T a) {
 	return (b *= a);
 }
