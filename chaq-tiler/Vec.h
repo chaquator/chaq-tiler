@@ -48,3 +48,8 @@ template <typename T,
 inline Vec operator *(Vec b, T a) {
 	return (b *= a);
 }
+
+struct Rect {
+	Vec upper_left;
+	Vec dimensions;
+};

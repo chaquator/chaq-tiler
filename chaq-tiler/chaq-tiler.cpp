@@ -28,8 +28,7 @@ using namespace std::literals;
 // whenever calculating, determine size based on whether taskbar is also present (will also need to account for orientation and position of it too)
 struct Desktop {
 	int margin; // Space between each window (and from the monitor edge to the window)
-	Vec monitor_upper_left;
-	Vec monitor_dimensions;
+	Rect rect;
 };
 
 struct Window {
@@ -109,10 +108,10 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 		max(10, desktop.margin)
 	};
 
-	Vec window_dimensions = window_factor * desktop.monitor_dimensions;
+	Vec window_dimensions = window_factor * desktop.rect.dimensions;
 
 	// Calculate, accounting for margin, how many cascades are needed for the screen
-	Vec::vec_t working_desktop_height = desktop.monitor_dimensions.y - 2 * cascade_delta.y - window_dimensions.y;
+	Vec::vec_t working_desktop_height = desktop.rect.dimensions.y - 2 * cascade_delta.y - window_dimensions.y;
 	Vec::vec_t cascade_total_height = (static_cast<Vec::vec_t>(size - 1) * cascade_delta.y); // cascade height only considering the margin
 	std::size_t cascades = static_cast<std::size_t>(cascade_total_height / working_desktop_height); // amount of cascades
 	// std::size_t cascade_leftover = static_cast<std::size_t>(cascade_total_height % working_desktop_height); // remaining height
@@ -123,15 +122,15 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 	auto single_cascade = [&desktop, &window_dimensions, &cascade_delta] (DiffType amount, Iterator start, std::size_t current_cascade) {
 		for (DiffType index = 0; index < amount; ++index, ++start) {
 			/*
-			Point upper_left = { desktop.margin, desktop.margin };
+			Point upper_left = desktop.rect.upper_left + { desktop.margin, desktop.margin };
 			Point cascade_offset = { static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x), 0 };
 			Point base = upper_left + cascade_offset;
 			Point travel = static_cast<Vec::vec_t>(index) * cascade_delta;
 			Point pos = base + travel;
 			*/
 			Vec pos = {
-				desktop.monitor_upper_left.x + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x) + static_cast<Vec::vec_t>(index) * cascade_delta.x,
-				desktop.monitor_upper_left.y + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(index) * cascade_delta.y
+				desktop.rect.upper_left.x + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x) + static_cast<Vec::vec_t>(index) * cascade_delta.x,
+				desktop.rect.upper_left.y + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(index) * cascade_delta.y
 			};
 
 			::SetWindowPos(start->handle,
@@ -301,8 +300,10 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// Primary desktop rectangle
 	Globals::PrimaryDesktop = Desktop {
 		Config::DefaultMargin,
-		Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
-		Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
+		Rect {
+			Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
+			Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
+		}
 	};
 
 	// Set up windows
