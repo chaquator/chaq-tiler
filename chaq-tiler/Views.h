@@ -12,8 +12,8 @@ class Views {
 		Horizontal
 	};
 
-	template<typename Iterator, Orientation orientation>
-	Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse);
+	template<Views::Orientation orientation, typename Iterator>
+	static Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse);
 
 public:
 	template <typename Iterator>
@@ -84,14 +84,16 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 template <typename Iterator>
 void Views::primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop) {
 	using DiffType = typename std::iterator_traits<Iterator>::difference_type;
+
+	tile_strip<Orientation::Vertical>(start, end, desktop.rect, desktop.margin, false);
 }
 
 // Helper function to draw single tiled strip with parameterized orientation and direction
 // reverse = true --> drawn right-to-left or down-to-up depending on orientation (vertical or horizontal)
-template<typename Iterator, Views::Orientation orientation>
+template<Views::Orientation orientation, typename Iterator>
 Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
 	// Returns reference to component of interest for the given orientation (which component to divide in length and tile along)
-	auto component_of_interest = [&orientation](const auto& vec) constexpr -> auto& {
+	auto component_of_interest = [](auto& vec) constexpr -> auto& {
 		return orientation == Views::Orientation::Horizontal ? vec.x : vec.y;
 	};
 

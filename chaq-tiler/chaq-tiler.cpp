@@ -1,12 +1,10 @@
 #include <windows.h>
 
 #include <cstddef>
-#include <type_traits>
 
 #include <string>
 #include <string_view>
 #include <vector>
-#include <iterator>
 
 #include <cassert>
 
@@ -46,7 +44,6 @@ static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring
 static bool ShouldManageWindow(HWND);
 static BOOL CALLBACK CreateWindows(HWND, LPARAM);
 static HMONITOR GetPrimaryMonitorHandle();
-void ApplyAction(const Window&);
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int);
 
@@ -155,7 +152,6 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 
 	if (ShouldManageWindow(window, style, exStyle, title, class_name)) {
 		Window new_window = GenerateWindow(window, style, exStyle, title, class_name);
-		ApplyAction(new_window);
 		Globals::Windows.push_back(std::move(new_window));
 	}
 
@@ -164,20 +160,6 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 
 HMONITOR GetPrimaryMonitorHandle() {
 	return MonitorFromPoint(POINT { 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
-}
-
-void ApplyAction(const Window& window) {
-	switch (window.action) {
-		case Rule::SingleAction::None: break;
-		case Rule::SingleAction::Unmaximize:
-		{
-			ShowWindow(window.handle, SW_SHOWNORMAL);
-		} break;
-		case Rule::SingleAction::Maximize:
-		{
-			ShowWindow(window.handle, SW_SHOWMAXIMIZED);
-		} break;
-	}
 }
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
@@ -206,7 +188,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(), [] (auto& window) -> bool { return !window.floating; });
 
 	// Single view call for now
-	Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+	//Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+	Views::primary_secondary_stack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
 
 	return 0;
 }
@@ -225,13 +208,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	[X] Create tile-strip function, drawns range of windows tiled next to each other (accounts for margins and all)
 		within an area, parameterized for both horizontal and verticla orientation
 			Consider parameterizing reverse of drawing too (for all levels)
-	[ ] Test tile-strip
+	[X] Test tile-strip
 	[ ] Create monocle function, piles windows on top of each other (bottom up)
 	[ ] Use tile-strip & monocle to draw primary stack, secondary stack
 	[ ] test
 
 	move window-related functions out into seperate file
-	[ ] set window position function
+	[X] set window position function
 	[ ] the rest
 
 	Future notes:

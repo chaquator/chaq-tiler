@@ -29,7 +29,7 @@ namespace Config {
 		Rule{L"mpv"sv, L""sv, 0, 0, true, true, 0, Rule::SingleAction::None} // mpv
 		});
 
-	constexpr const Vec::vec_t DefaultMargin = 50;
+	constexpr const Vec::vec_t DefaultMargin = 16;
 
 	constexpr const Vec DefaultPrimaryStackDimensions = { 1, 1 };
 
