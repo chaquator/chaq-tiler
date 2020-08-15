@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iterator>
+#include <algorithm>
 #include <Windows.h>
 
 #include "Vec.h"
@@ -117,15 +118,12 @@ Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect&
 	}
 
 	// Tile windows
-	Iterator current = start;
-	while (current != end) {
-		current->SetPos(window_rect);
+	std::for_each(start, end, [&reverse, &margin, &window_rect, &size_component, &current_ul_component] (const auto& window) {
+		window.SetPos(window_rect);
 
 		// Reverse travels backwards
 		current_ul_component += (reverse) ? -(size_component + margin) : (size_component + margin);
-
-		++current;
-	}
+	});
 
 	// Function will be used like Iterator current_window = tile_strip(...);
 	return end;

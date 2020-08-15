@@ -185,7 +185,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// Set up windows
 	EnumWindows(CreateWindows, NULL);
 	// Partition windows between non-floating and floating
-	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(), [] (auto& window) -> bool { return !window.floating; });
+	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(), [] (const auto& window) -> bool { return !window.floating; });
 
 	// Single view call for now
 	//Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
