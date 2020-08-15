@@ -22,7 +22,7 @@ struct Window {
 		title(title), class_name(class_name) {
 	}
 
-	void SetPos(const Rect& rect) const;
+	void SetPos(const Rect& rect, HWND) const;
 
 	void ApplyAction() const;
 };

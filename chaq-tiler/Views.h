@@ -13,8 +13,11 @@ class Views {
 		Horizontal
 	};
 
-	template<Views::Orientation orientation, typename Iterator>
+	template<Orientation orientation, typename Iterator>
 	static Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse);
+
+	template<typename Iterator>
+	static Iterator monocle_area(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse);
 
 public:
 	template <typename Iterator>
@@ -83,9 +86,6 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 // Traditional dwm-like stack
 template <typename Iterator>
 void Views::primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop) {
-	using DiffType = typename std::iterator_traits<Iterator>::difference_type;
-
-	tile_strip<Orientation::Vertical>(start, end, desktop.rect, desktop.margin, false);
 }
 
 // Helper function to draw single tiled strip with parameterized orientation and direction
@@ -120,5 +120,25 @@ Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect&
 	});
 
 	// Function will be used like Iterator current_window = tile_strip(...);
+	return end;
+}
+
+template<typename Iterator>
+static Iterator Views::monocle_area(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
+	Rect window_rect = area;
+	window_rect.dimensions -= 2 * Vec { margin, margin };
+	window_rect.upper_left += Vec { margin, margin };
+
+	Iterator current = start;
+	while (current != end) {
+		auto& window = *current;
+		HWND after = ((current + 1) == end) ? HWND_TOP : (current + 1)->handle;
+		HWND before = (current == start) ? HWND_BOTTOM : (current - 1)->handle;
+
+		window.SetPos(window_rect, reverse ? after : before);
+
+		++current;
+	}
+
 	return end;
 }

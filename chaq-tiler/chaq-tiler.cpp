@@ -209,7 +209,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		within an area, parameterized for both horizontal and verticla orientation
 			Consider parameterizing reverse of drawing too (for all levels)
 	[X] Test tile-strip
-	[ ] Create monocle function, piles windows on top of each other (bottom up)
+	[X] Create monocle area function, piles windows on top of each other (bottom up)
+	[X] Test monocle area function
 	[ ] Use tile-strip & monocle to draw primary stack, secondary stack
 	[ ] test
 

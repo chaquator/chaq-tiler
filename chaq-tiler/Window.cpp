@@ -2,14 +2,14 @@
 
 #include "Window.h"
 
-void Window::SetPos(const Rect& rect) const {
+void Window::SetPos(const Rect& rect, HWND after = HWND_BOTTOM) const {
 	this->ApplyAction();
 
 	::SetWindowPos(this->handle,
-		HWND_BOTTOM,
+		after,
 		static_cast<int>(rect.upper_left.x), static_cast<int>(rect.upper_left.y),
 		static_cast<int>(rect.dimensions.x), static_cast<int>(rect.dimensions.y),
-		SWP_NOACTIVATE
+		SWP_SHOWWINDOW | SWP_NOACTIVATE
 	);
 }
 
