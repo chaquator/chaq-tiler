@@ -94,9 +94,7 @@ void Views::primary_secondary_stack(const Iterator start, const Iterator end, co
 template<Views::Orientation orientation, typename Iterator>
 Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
 	// Returns reference to component of interest for the given orientation (which component to divide in length and tile along)
-	auto component_of_interest = [](auto& vec) constexpr -> auto& {
-		return orientation == Views::Orientation::Horizontal ? vec.x : vec.y;
-	};
+	auto component_of_interest = [](auto& vec) constexpr -> auto& {	return orientation == Views::Orientation::Horizontal ? vec.x : vec.y; };
 
 	Vec working_size = area.dimensions - (2 * Vec { margin, margin });
 
@@ -116,13 +114,14 @@ Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect&
 	if (reverse) {
 		current_ul_component += component_of_interest(working_size) - size_component;
 	}
+	auto ul_offset = (reverse) ? -(size_component + margin) : (size_component + margin);
 
 	// Tile windows
-	std::for_each(start, end, [&reverse, &margin, &window_rect, &size_component, &current_ul_component] (const auto& window) {
+	std::for_each(start, end, [&window_rect, &current_ul_component, &ul_offset] (const auto& window) {
 		window.SetPos(window_rect);
 
 		// Reverse travels backwards
-		current_ul_component += (reverse) ? -(size_component + margin) : (size_component + margin);
+		current_ul_component += ul_offset;
 	});
 
 	// Function will be used like Iterator current_window = tile_strip(...);
