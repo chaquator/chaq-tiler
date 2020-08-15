@@ -58,11 +58,10 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 	auto single_cascade = [&desktop, &cascade_delta] (DiffType amount, Iterator start, std::size_t current_cascade, Rect base_rect) {
 		base_rect.upper_left += Vec { static_cast<Vec::vec_t>(current_cascade) * (base_rect.dimensions.x + cascade_delta.x), 0 };
 
-		for (DiffType index = 0; index < amount; ++index, ++start) {
-			start->SetPos(base_rect);
-
+		std::for_each_n(start, amount, [&base_rect, &cascade_delta] (const auto& window) {
+			window.SetPos(base_rect);
 			base_rect.upper_left += cascade_delta;
-		}
+		});
 	};
 
 	// Full cascades
@@ -94,7 +93,7 @@ void Views::primary_secondary_stack(const Iterator start, const Iterator end, co
 template<Views::Orientation orientation, typename Iterator>
 Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
 	// Returns reference to component of interest for the given orientation (which component to divide in length and tile along)
-	auto component_of_interest = [](auto& vec) constexpr -> auto& {	return orientation == Views::Orientation::Horizontal ? vec.x : vec.y; };
+	auto component_of_interest = [](auto& vec) constexpr -> auto& { return orientation == Views::Orientation::Horizontal ? vec.x : vec.y; };
 
 	Vec working_size = area.dimensions - (2 * Vec { margin, margin });
 
@@ -111,16 +110,12 @@ Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect&
 	// Upper left component of interest
 	auto& current_ul_component = component_of_interest(window_rect.upper_left);
 	// Reverse will start from other side
-	if (reverse) {
-		current_ul_component += component_of_interest(working_size) - size_component;
-	}
+	if (reverse) current_ul_component += component_of_interest(working_size) - size_component;
 	auto ul_offset = (reverse) ? -(size_component + margin) : (size_component + margin);
 
 	// Tile windows
 	std::for_each(start, end, [&window_rect, &current_ul_component, &ul_offset] (const auto& window) {
 		window.SetPos(window_rect);
-
-		// Reverse travels backwards
 		current_ul_component += ul_offset;
 	});
 
