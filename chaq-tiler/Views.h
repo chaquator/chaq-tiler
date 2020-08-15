@@ -86,6 +86,7 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 // Traditional dwm-like stack
 template <typename Iterator>
 void Views::primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop) {
+	monocle_area(start, end, desktop.rect, desktop.margin, false);
 }
 
 // Helper function to draw single tiled strip with parameterized orientation and direction

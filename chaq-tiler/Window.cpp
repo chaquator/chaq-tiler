@@ -2,7 +2,7 @@
 
 #include "Window.h"
 
-void Window::SetPos(const Rect& rect, HWND after = HWND_BOTTOM) const {
+void Window::SetPos(const Rect& rect, HWND after) const {
 	this->ApplyAction();
 
 	::SetWindowPos(this->handle,
