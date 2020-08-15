@@ -12,8 +12,8 @@ class Views {
 		Horizontal
 	};
 
-	template<typename Iterator, Orientation orientation, bool reverse>
-	static Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, int margin);
+	template<typename Iterator, Orientation orientation>
+	Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse);
 
 public:
 	template <typename Iterator>
@@ -40,10 +40,13 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 		max(10, desktop.margin)
 	};
 
-	Vec window_dimensions = window_factor * desktop.rect.dimensions;
+	Rect window_rect {
+		desktop.rect.upper_left + Vec{ desktop.margin, desktop.margin }, // Upper-left
+		window_factor * desktop.rect.dimensions // Dimensions
+	};
 
 	// Calculate, accounting for margin, how many cascades are needed for the screen
-	Vec::vec_t working_desktop_height = desktop.rect.dimensions.y - 2 * cascade_delta.y - window_dimensions.y;
+	Vec::vec_t working_desktop_height = desktop.rect.dimensions.y - 2 * cascade_delta.y - window_rect.dimensions.y;
 	Vec::vec_t cascade_total_height = (static_cast<Vec::vec_t>(size - 1) * cascade_delta.y); // cascade height only considering the margin
 	std::size_t cascades = static_cast<std::size_t>(cascade_total_height / working_desktop_height); // amount of cascades
 	// std::size_t cascade_leftover = static_cast<std::size_t>(cascade_total_height % working_desktop_height); // remaining height
@@ -51,26 +54,13 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 	// # of windows to draw = ceil(desktop_height / window_height)
 	DiffType windows_per_full_cascade = static_cast<DiffType>((working_desktop_height / cascade_delta.y)) + ((working_desktop_height % cascade_delta.y != 0) ? 1 : 0);
 
-	auto single_cascade = [&desktop, &window_dimensions, &cascade_delta] (DiffType amount, Iterator start, std::size_t current_cascade) {
-		for (DiffType index = 0; index < amount; ++index, ++start) {
-			/*
-			Point upper_left = desktop.rect.upper_left + { desktop.margin, desktop.margin };
-			Point cascade_offset = { static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x), 0 };
-			Point base = upper_left + cascade_offset;
-			Point travel = static_cast<Vec::vec_t>(index) * cascade_delta;
-			Point pos = base + travel;
-			*/
-			Vec pos = {
-				desktop.rect.upper_left.x + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(current_cascade) * (window_dimensions.x + cascade_delta.x) + static_cast<Vec::vec_t>(index) * cascade_delta.x,
-				desktop.rect.upper_left.y + static_cast<Vec::vec_t>(desktop.margin) + static_cast<Vec::vec_t>(index) * cascade_delta.y
-			};
+	auto single_cascade = [&desktop, &cascade_delta] (DiffType amount, Iterator start, std::size_t current_cascade, Rect base_rect) {
+		base_rect.upper_left += Vec { static_cast<Vec::vec_t>(current_cascade) * (base_rect.dimensions.x + cascade_delta.x), 0 };
 
-			::SetWindowPos(start->handle,
-				HWND_BOTTOM,
-				static_cast<int>(pos.x), static_cast<int>(pos.y),
-				static_cast<int>(window_dimensions.x), static_cast<int>(window_dimensions.y),
-				SWP_NOACTIVATE
-			);
+		for (DiffType index = 0; index < amount; ++index, ++start) {
+			start->SetPos(base_rect);
+
+			base_rect.upper_left += cascade_delta;
 		}
 	};
 
@@ -78,7 +68,7 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 	std::size_t current_cascade = 0;
 	Iterator current_window = start;
 	while (current_cascade < cascades) {
-		single_cascade(windows_per_full_cascade, current_window, current_cascade);
+		single_cascade(windows_per_full_cascade, current_window, current_cascade, window_rect);
 
 		current_window += windows_per_full_cascade;
 		++current_cascade;
@@ -87,7 +77,7 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 	// Leftovers
 	DiffType remaining = std::distance(current_window, end);
 	assert(remaining <= windows_per_full_cascade);
-	single_cascade(remaining, current_window, current_cascade);
+	single_cascade(remaining, current_window, current_cascade, window_rect);
 }
 
 // Traditional dwm-like stack
@@ -98,36 +88,40 @@ void Views::primary_secondary_stack(const Iterator start, const Iterator end, co
 
 // Helper function to draw single tiled strip with parameterized orientation and direction
 // reverse = true --> drawn right-to-left or down-to-up depending on orientation (vertical or horizontal)
-template<typename Iterator, Views::Orientation orientation, bool reverse>
-Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin) {
-
+template<typename Iterator, Views::Orientation orientation>
+Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
 	// Returns reference to component of interest for the given orientation (which component to divide in length and tile along)
-	auto component_of_interest = [&orientation] (const Vec& vec) constexpr -> Vec::vec_t& {
+	auto component_of_interest = [&orientation](const auto& vec) constexpr -> auto& {
 		return orientation == Views::Orientation::Horizontal ? vec.x : vec.y;
 	};
 
 	Vec working_size = area.dimensions - (2 * Vec { margin, margin });
 
-	// Window size (doesn't subtract margin)
-	Vec window_dimensions = working_size;
-	// TODO: find out if type needs to be auto& or auto (i think it's the latter maybe)
-	auto& divided_component = component_of_interest(window_dimensions);
-	divided_component /= static_cast<Vec::vec_t>(std::distance(start, end));
-	divided_component -= margin;
+	Rect window_rect {
+		area.upper_left + Vec{ margin, margin }, // Upper-left
+		working_size // Dimensions
+	};
 
-	Vec current_ul = area.upper_left + Vec { margin, margin };
-	auto& current_ul_component = component_of_interest(current_ul);
+	// Set correct window size
+	auto& size_component = component_of_interest(window_rect.dimensions);
+	size_component /= static_cast<Vec::vec_t>(std::distance(start, end));
+	size_component -= margin;
 
+	// Upper left component of interest
+	auto& current_ul_component = component_of_interest(window_rect.upper_left);
+	// Reverse will start from other side
+	if (reverse) {
+		current_ul_component += component_of_interest(working_size) - size_component;
+	}
+
+	// Tile windows
 	Iterator current = start;
 	while (current != end) {
-		::SetWindowPos(start->handle,
-			HWND_BOTTOM,
-			static_cast<int>(current_ul.x), static_cast<int>(current_ul.y),
-			static_cast<int>(window_dimensions.x), static_cast<int>(window_dimensions.y),
-			SWP_NOACTIVATE
-		);
+		current->SetPos(window_rect);
 
-		current_ul_component += divided_component + margin;
+		// Reverse travels backwards
+		current_ul_component += (reverse) ? -(size_component + margin) : (size_component + margin);
+
 		++current;
 	}
 
