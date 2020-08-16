@@ -1,11 +1,14 @@
+#pragma once
+
+#include "Vec.h"
+#include "Enums.h"
 #include "Rule.h"
 
 #include <array>
 #include <string_view>
 
-using namespace std::literals::string_view_literals;
-
 namespace Config {
+	using namespace std::literals::string_view_literals;
 	// Window rule list
 	// Rules will be applied in order listed, any conflicting rules will be decided by whichever rule comes last, so order them from most general -> most specific.
 	// For all windows, if there exists a rule which applies to the window and the rule specifies not to manage the window, then the window is not managed.
@@ -29,9 +32,27 @@ namespace Config {
 		Rule{L"mpv"sv, L""sv, 0, 0, true, true, 0, Rule::SingleAction::None} // mpv
 		});
 
-	constexpr const Vec::vec_t DefaultMargin = 16;
+	// Window filtering
+	const bool PrimaryMonitorWindowsOnly = true;
 
-	constexpr const Vec DefaultPrimaryStackDimensions = { 1, 1 };
+	// Screen defaults
+	const Enums::Display InitialView = Enums::Display::TileStack;
+	const Vec::vec_t InitialMargin = 16;
+	const Vec::vec_t MarginIncrement = 16;
+	const Vec::vec_t ProportionIncrement = 32;
 
-	constexpr const bool PrimaryMonitorWindowsOnly = true;
+	// Primary-secondary stack defaults
+	const float InitialPrimarySecondaryProportion = 0.75f; // Proportion of screen that primary stack takes up
+	const Enums::Orientation InitialPrimarySecondaryOrientation = Enums::Orientation::Horizontal; // Orientation of primary and secondary stacks to each other
+	const bool InitialPrimarySecondaryReverse = false; // false -> [primary | secondary] (if orientation is vertical, primary stack is on top)
+
+	// Primary stack defaults
+	const Vec InitialPrimaryStackDimensions = Vec{ 1, 1 };
+	const Enums::MajorDirection InitialPrimaryMajorDirection = Enums::MajorDirection::PositiveX;
+	const Enums::SubDirection InitialPrimarySubDirection = Enums::SubDirection::Positive;
+
+	// Secondary stack defaults
+	const Enums::Display InitialSecondaryView = Enums::Display::TileStack;
+	const Enums::Orientation InitialSecondaryOrientation = Enums::Orientation::Vertical;
+	const bool InitialSecondaryReverse = false; // Applies to tile-stack view mainly
 }

@@ -5,15 +5,13 @@
 #include <Windows.h>
 
 #include "Vec.h"
+#include "Enums.h"
 #include "Desktop.h"
 
 class Views {
-	enum class Orientation {
-		Vertical,
-		Horizontal
-	};
 
-	template<Orientation orientation, typename Iterator>
+private:
+	template<Enums::Orientation orientation, typename Iterator>
 	static Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse);
 
 	template<typename Iterator>
@@ -21,16 +19,16 @@ class Views {
 
 public:
 	template <typename Iterator>
-	static void cascade(const Iterator start, const Iterator end, const Desktop& desktop);
+	static void Cascade(const Iterator start, const Iterator end, const Desktop& desktop);
 
 	template <typename Iterator>
-	static void primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop);
+	static void TileStack(const Iterator start, const Iterator end, const Desktop& desktop);
 };
 
 // Cascading view, breaks cascade into multiple to make windows fit vertically if necessary
 // Mainly used for testing
 template <typename Iterator>
-void Views::cascade(const Iterator start, const Iterator end, const Desktop& desktop) {
+void Views::Cascade(const Iterator start, const Iterator end, const Desktop& desktop) {
 	using DiffType = typename std::iterator_traits<Iterator>::difference_type;
 
 	DiffType size = std::distance(start, end);
@@ -85,16 +83,16 @@ void Views::cascade(const Iterator start, const Iterator end, const Desktop& des
 
 // Traditional dwm-like stack
 template <typename Iterator>
-void Views::primary_secondary_stack(const Iterator start, const Iterator end, const Desktop& desktop) {
+void Views::TileStack(const Iterator start, const Iterator end, const Desktop& desktop) {
 	monocle_area(start, end, desktop.rect, desktop.margin, false);
 }
 
 // Helper function to draw single tiled strip with parameterized orientation and direction
 // reverse = true --> drawn right-to-left or down-to-up depending on orientation (vertical or horizontal)
-template<Views::Orientation orientation, typename Iterator>
+template<Enums::Orientation orientation, typename Iterator>
 Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
 	// Returns reference to component of interest for the given orientation (which component to divide in length and tile along)
-	auto component_of_interest = [](auto& vec) constexpr -> auto& { return orientation == Views::Orientation::Horizontal ? vec.x : vec.y; };
+	auto component_of_interest = [](auto& vec) constexpr -> decltype(auto) { return orientation == Enums::Orientation::Horizontal ? (vec.x) : (vec.y); };
 
 	Vec working_size = area.dimensions - (2 * Vec { margin, margin });
 

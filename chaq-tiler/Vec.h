@@ -5,6 +5,7 @@
 
 struct Vec {
 	using vec_t = std::int32_t;
+
 	vec_t x;
 	vec_t y;
 

@@ -149,11 +149,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="chaq-tiler.cpp" />
+    <ClCompile Include="Desktop.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="config.h" />
     <ClInclude Include="Desktop.h" />
+    <ClInclude Include="Enums.h" />
     <ClInclude Include="Rule.h" />
     <ClInclude Include="Vec.h" />
     <ClInclude Include="Views.h" />

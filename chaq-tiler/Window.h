@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Windows.h>
 #include <bitset>
 #include <string>
 #include <string_view>

@@ -10,34 +10,25 @@
 
 #include <algorithm>
 
+#include "config.h"
+#include "Vec.h"
 #include "Desktop.h"
 #include "Rule.h"
-#include "Vec.h"
-#include "Views.h"
 #include "Window.h"
-#include "config.h"
+#include "Views.h"
 
 #define NOMINMAX
 
-// Usings and typedefs
-using namespace std::literals;
-
-// Structs and classes
-
 // Globals
-
 namespace Globals {
 	// runtime globals
 	std::vector<Window> Windows;
 	decltype(Windows)::const_iterator WindowPartitionPoint;
-	Vec PrimaryStackDimensions = Config::DefaultPrimaryStackDimensions;
 
 	// setup globals
 	HMONITOR PrimaryMonitor;
 	Desktop PrimaryDesktop;
 }
-
-// Function definitions
 
 static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
 static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
@@ -174,12 +165,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		return EXIT_FAILURE;
 	}
 	// Primary desktop rectangle
-	Globals::PrimaryDesktop = Desktop {
-		Config::DefaultMargin,
-		Rect {
-			Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
-			Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
-		}
+	Rect desktop_rect = {
+		Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
+		Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
 	};
 
 	// Set up windows
@@ -189,7 +177,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	// Single view call for now
 	//Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
-	Views::primary_secondary_stack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+	Views::TileStack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
 
 	return 0;
 }

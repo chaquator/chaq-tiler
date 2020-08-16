@@ -1,5 +1,3 @@
-#include <Windows.h>
-
 #include "Window.h"
 
 void Window::SetPos(const Rect& rect, HWND after) const {
