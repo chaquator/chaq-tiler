@@ -17,8 +17,6 @@
 #include "Window.h"
 #include "Views.h"
 
-#define NOMINMAX
-
 // Globals
 namespace Globals {
 	// runtime globals
@@ -124,22 +122,22 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
 	}
 
 	TCHAR title_buf[buflen];
-	int len = GetWindowTextW(window, title_buf, buflen);
+	int len = GetWindowTextW(window, (LPWSTR)title_buf, buflen);
 	if (len == 0) {
 		debug("Title len 0");
 		// TODO: Error
 		return TRUE;
 	}
-	std::wstring_view title { title_buf, static_cast<std::size_t>(len) };
+	std::wstring_view title { (LPWSTR)title_buf, static_cast<std::size_t>(len) };
 
 	TCHAR class_buf[buflen];
-	len = GetClassNameW(window, class_buf, buflen);
+	len = GetClassNameW(window, (LPWSTR)class_buf, buflen);
 	if (len == 0) {
 		debug("Class len 0");
 		// TODO: Error
 		return TRUE;
 	}
-	std::wstring_view class_name { class_buf, static_cast<std::size_t>(len) };
+	std::wstring_view class_name { (LPWSTR)class_buf, static_cast<std::size_t>(len) };
 
 	if (ShouldManageWindow(window, style, exStyle, title, class_name)) {
 		Window new_window = GenerateWindow(window, style, exStyle, title, class_name);
@@ -171,13 +169,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	};
 
 	// Set up windows
-	EnumWindows(CreateWindows, NULL);
+	EnumWindows(CreateWindows, (LPARAM)0);
 	// Partition windows between non-floating and floating
 	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(), [] (const auto& window) -> bool { return !window.floating; });
 
 	// Single view call for now
-	//Views::cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
-	Views::TileStack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+	Views::Cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+	// Views::TileStack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
 
 	return 0;
 }

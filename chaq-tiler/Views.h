@@ -8,6 +8,10 @@
 #include "Enums.h"
 #include "Desktop.h"
 
+#ifndef max
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+#endif
+
 class Views {
 
 private:
@@ -93,7 +97,7 @@ template<Enums::Orientation orientation, typename Iterator>
 Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
 	// Returns reference to component of interest for the given orientation (which component to divide in length and tile along)
 	auto component_of_interest = [](auto& vec) constexpr -> decltype(auto) { return orientation == Enums::Orientation::Horizontal ? (vec.x) : (vec.y); };
-
+		
 	Vec working_size = area.dimensions - (2 * Vec { margin, margin });
 
 	Rect window_rect {
@@ -123,7 +127,7 @@ Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect&
 }
 
 template<typename Iterator>
-static Iterator Views::monocle_area(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
+Iterator Views::monocle_area(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
 	Rect window_rect = area;
 	window_rect.dimensions -= 2 * Vec { margin, margin };
 	window_rect.upper_left += Vec { margin, margin };

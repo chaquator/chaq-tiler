@@ -1,6 +1,6 @@
 #include "Desktop.h"
 
-// TODO: this is disgusting, make a default Desktop in Config and copy it good jesus
+// it ees wat it ees
 Desktop::Desktop(Rect desktopRect) :
 	rect(desktopRect), view(Config::InitialView), margin(Config::InitialMargin),
 	primary_secondary_orientation(Config::InitialPrimarySecondaryOrientation),
