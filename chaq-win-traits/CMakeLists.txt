@@ -1,3 +1,3 @@
 set(src_files
 	./main.cpp)
-add_executable(test_bench ${src_files})
+add_executable(chaq_win_traits ${src_files})

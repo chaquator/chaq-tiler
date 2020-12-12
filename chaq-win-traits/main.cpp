@@ -1,9 +1,16 @@
 #include <windows.h>
 
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+#ifndef UNICODE
+#define UNICODE
+#endif
+
+#include <cwchar>
 #include <unordered_map>
 #include <string_view>
 #include <cstdio>
-#include <cwchar>
 
 #ifdef NDEBUG
 #define debug(s) ((void)0)
@@ -98,10 +105,10 @@ BOOL CALLBACK MatchWindowPrintStyle(HWND window, LPARAM param) {
 		debug("Title len 0, skipping...");
 		return TRUE;
 	}
-	std::wstring_view title { title_buf, static_cast<std::size_t>(len) };
+	std::wstring_view title { (LPWSTR)title_buf, static_cast<std::size_t>(len) };
 
 	if (title.find(search_title) != std::wstring_view::npos) {
-		printf("Matched \"%ls\":\n", title.data());
+			std::wprintf(L"Matched \"%ls\":\n", title.data());
 		StyleDecompose(window);
 		std::putchar('\n');
 	}
@@ -139,20 +146,21 @@ BOOL CALLBACK ListWindowTraits(HWND window, LPARAM) {
 	}
 	// std::wstring_view class_name{ class_buf, static_cast<std::size_t>(len) };
 
-	std::wprintf(L"Title: %s\n"
-		L"Class: %s\n"
+	std::wprintf(L"Title: %ls\n"
+		L"Class: %ls\n"
 		L"Style: 0x%08X, ExStyle: 0x%08X\n\n",
 		title_buf, class_buf, style, exStyle);
 
 	return TRUE;
 }
 
-int wmain(int argc, wchar_t** argv) {
+int main(int argc, char** argv) {
 	if (argc < 2) {
-		EnumWindows(ListWindowTraits, NULL);
+		EnumWindows(ListWindowTraits, (LPARAM)0);
 	}
 	else {
-		std::wprintf(L"Searching for windows with \"%ls\"\n", argv[1]);
+		std::printf("Searching for windows with \"%s\"\n", argv[1]);
 		EnumWindows(MatchWindowPrintStyle, reinterpret_cast<LPARAM>(argv[1]));
 	}
+	return 0;
 }

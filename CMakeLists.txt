@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(MINGW)
 	add_compile_options(-flto)
+	add_compile_options(-municode)
 endif()
 
 add_subdirectory(./chaq-tiler)
