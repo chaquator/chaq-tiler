@@ -1,16 +1,9 @@
 #include <windows.h>
 
-#ifndef _UNICODE
-#define _UNICODE
-#endif
-#ifndef UNICODE
-#define UNICODE
-#endif
-
-#include <cwchar>
 #include <unordered_map>
 #include <string_view>
 #include <cstdio>
+#include <cwchar>
 
 #ifdef NDEBUG
 #define debug(s) ((void)0)
@@ -100,7 +93,7 @@ BOOL CALLBACK MatchWindowPrintStyle(HWND window, LPARAM param) {
 	auto search_title = std::wstring_view(reinterpret_cast<wchar_t*>(param));
 
 	TCHAR title_buf[buflen];
-	int len = GetWindowText(window, title_buf, buflen);
+	int len = GetWindowTextW(window, (LPWSTR)title_buf, buflen);
 	if (len == 0) {
 		debug("Title len 0, skipping...");
 		return TRUE;
@@ -108,7 +101,7 @@ BOOL CALLBACK MatchWindowPrintStyle(HWND window, LPARAM param) {
 	std::wstring_view title { (LPWSTR)title_buf, static_cast<std::size_t>(len) };
 
 	if (title.find(search_title) != std::wstring_view::npos) {
-			std::wprintf(L"Matched \"%ls\":\n", title.data());
+		std::wprintf(L"Matched \"%ls\":\n", title.data());
 		StyleDecompose(window);
 		std::putchar('\n');
 	}
@@ -146,8 +139,8 @@ BOOL CALLBACK ListWindowTraits(HWND window, LPARAM) {
 	}
 	// std::wstring_view class_name{ class_buf, static_cast<std::size_t>(len) };
 
-	std::wprintf(L"Title: %ls\n"
-		L"Class: %ls\n"
+	std::wprintf(L"Title: %hs\n"
+		L"Class: %hs\n"
 		L"Style: 0x%08X, ExStyle: 0x%08X\n\n",
 		title_buf, class_buf, style, exStyle);
 
@@ -160,7 +153,13 @@ int main(int argc, char** argv) {
 	}
 	else {
 		std::printf("Searching for windows with \"%s\"\n", argv[1]);
-		EnumWindows(MatchWindowPrintStyle, reinterpret_cast<LPARAM>(argv[1]));
+		int wargc;
+		LPWSTR* wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+		if(wargv == NULL) { 
+				exit(1);
+		}
+		EnumWindows(MatchWindowPrintStyle, reinterpret_cast<LPARAM>(wargv[1]));
+		LocalFree(wargv);
 	}
 	return 0;
 }

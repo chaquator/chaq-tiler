@@ -6,7 +6,7 @@ namespace Enums {
 		Horizontal
 	};
 
-	enum class Display {
+	enum class ViewType {
 		Monocle,
 		TileStack
 	};

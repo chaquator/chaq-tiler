@@ -5,24 +5,23 @@
 
 #include "config.h"
 
-
 // TODO: decide when to update this (looks like WM_DISPLAYCHANGE message in WindowProc).
 // whenever calculating, determine size based on whether taskbar is also present (will also need to account for orientation and position of it too)
 struct Desktop {
-	Rect rect; // Upper left point and screen-size
-	Vec::vec_t primary_stack_size;
+	// Upper left point and screen-size
+	Rect rect; 
 
-	Enums::Display view;
-	Vec::vec_t margin;
+	Enums::ViewType view = Config::InitialView;
+	Vec::vec_t margin = Config::InitialMargin;
 
-	Enums::Orientation primary_secondary_orientation;
-	Enums::MajorDirection primary_major_direction;
-	Enums::SubDirection primary_sub_direction;
+	float primary_stack_proportion = Config::InitialPrimaryStackProportion;
+	Enums::Orientation primary_secondary_orientation = Config::InitialPrimarySecondaryOrientation;
+	Enums::MajorDirection primary_major_direction = Config::InitialPrimaryMajorDirection;
+	Enums::SubDirection primary_sub_direction = Config::InitialPrimarySubDirection;
 
-	Enums::Display secondary_view;
-	Enums::Orientation secondary_orientation;
-	bool secondary_reverse;
+	Enums::ViewType secondary_view = Config::InitialSecondaryView;
+	Enums::Orientation secondary_orientation = Config::InitialSecondaryOrientation;
+	bool secondary_reverse = Config::InitialSecondaryReverse;
 
-	Desktop() = default;
-	Desktop(Rect desktopRect);
+	void updateRect(Rect rect);
 };

@@ -28,9 +28,11 @@ namespace Globals {
 	Desktop PrimaryDesktop;
 }
 
-static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
-static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name);
-static bool ShouldManageWindow(HWND);
+static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title,
+				std::wstring_view& class_name);
+static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, 
+				std::wstring_view& class_name);
+static bool ShouldManageWindow(HWND, LONG, LONG, std::wstring_view&, std::wstring_view&);
 static BOOL CALLBACK CreateWindows(HWND, LPARAM);
 static HMONITOR GetPrimaryMonitorHandle();
 
@@ -97,7 +99,8 @@ bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view
 		if (monitor != Globals::PrimaryMonitor) return false;
 	}
 
-	bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), [&style, &exStyle, &title, &class_name] (const auto& rule) -> bool {
+	bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(),
+		[&style, &exStyle, &title, &class_name] (const auto& rule) -> bool {
 		return DoesRuleApply(rule, style, exStyle, title, class_name) && !rule.Manage;
 	});
 
@@ -155,9 +158,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	// Setup globals
 	// Primary monitor
 	Globals::PrimaryMonitor = GetPrimaryMonitorHandle();
-	MONITORINFO monitor_info = {
-		.cbSize = sizeof(MONITORINFO)
-	};
+	MONITORINFO monitor_info;
+   	monitor_info.cbSize = sizeof(MONITORINFO);
+
 	if (!GetMonitorInfoW(Globals::PrimaryMonitor, &monitor_info)) {
 		debug("Failed to get primary monitor");
 		return EXIT_FAILURE;
@@ -167,11 +170,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		Vec { monitor_info.rcWork.left, monitor_info.rcWork.top },
 		Vec { monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top }
 	};
+	Globals::PrimaryDesktop.updateRect(desktop_rect);
 
 	// Set up windows
 	EnumWindows(CreateWindows, (LPARAM)0);
 	// Partition windows between non-floating and floating
-	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(), [] (const auto& window) -> bool { return !window.floating; });
+	Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(),
+					[] (const auto& window) -> bool { return !window.floating; });
 
 	// Single view call for now
 	Views::Cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);

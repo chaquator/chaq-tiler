@@ -53,12 +53,15 @@ void Views::Cascade(const Iterator start, const Iterator end, const Desktop& des
 
 	// Calculate, accounting for margin, how many cascades are needed for the screen
 	Vec::vec_t working_desktop_height = desktop.rect.dimensions.y - 2 * cascade_delta.y - window_rect.dimensions.y;
-	Vec::vec_t cascade_total_height = (static_cast<Vec::vec_t>(size - 1) * cascade_delta.y); // cascade height only considering the margin
-	std::size_t cascades = static_cast<std::size_t>(cascade_total_height / working_desktop_height); // amount of cascades
+	// cascade height only considering the margin
+	Vec::vec_t cascade_total_height = (static_cast<Vec::vec_t>(size - 1) * cascade_delta.y); 
+	// amount of cascades
+	std::size_t cascades = static_cast<std::size_t>(cascade_total_height / working_desktop_height); 
 	// std::size_t cascade_leftover = static_cast<std::size_t>(cascade_total_height % working_desktop_height); // remaining height
 
 	// # of windows to draw = ceil(desktop_height / window_height)
-	DiffType windows_per_full_cascade = static_cast<DiffType>((working_desktop_height / cascade_delta.y)) + ((working_desktop_height % cascade_delta.y != 0) ? 1 : 0);
+	DiffType windows_per_full_cascade = static_cast<DiffType>((working_desktop_height / cascade_delta.y))
+		+ ((working_desktop_height % cascade_delta.y != 0) ? 1 : 0);
 
 	auto single_cascade = [&desktop, &cascade_delta] (DiffType amount, Iterator start, std::size_t current_cascade, Rect base_rect) {
 		base_rect.upper_left += Vec { static_cast<Vec::vec_t>(current_cascade) * (base_rect.dimensions.x + cascade_delta.x), 0 };
@@ -95,8 +98,11 @@ void Views::TileStack(const Iterator start, const Iterator end, const Desktop& d
 // reverse = true --> drawn right-to-left or down-to-up depending on orientation (vertical or horizontal)
 template<Enums::Orientation orientation, typename Iterator>
 Iterator Views::tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool reverse) {
-	// Returns reference to component of interest for the given orientation (which component to divide in length and tile along)
-	auto component_of_interest = [](auto& vec) constexpr -> decltype(auto) { return orientation == Enums::Orientation::Horizontal ? (vec.x) : (vec.y); };
+	// Returns reference to component of interest for the given orientation
+	// (which component to divide in length and tile along)
+	auto component_of_interest = [](auto& vec) constexpr -> decltype(auto) {
+			return orientation == Enums::Orientation::Horizontal ? (vec.x) : (vec.y);
+	};
 		
 	Vec working_size = area.dimensions - (2 * Vec { margin, margin });
 
