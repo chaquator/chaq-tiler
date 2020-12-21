@@ -1,0 +1,7 @@
+BasedOnStyle: LLVM
+AllowShortIfStatementsOnASingleLine: true
+AlwaysBreakTemplateDeclarations: Yes
+ColumnLimit: 120
+IndentCaseLabels: false
+IndentWidth: 4
+PointerAlignment: Left
