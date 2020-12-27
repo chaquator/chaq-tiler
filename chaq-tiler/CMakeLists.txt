@@ -8,6 +8,7 @@ set(src_files
 	Rule.h
 	Vec.h
 	Views.h
-	Window.h)
+	Window.h
+	Globals.h)
 
 add_executable(chaq_tiler WIN32 ${src_files})

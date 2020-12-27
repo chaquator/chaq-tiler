@@ -11,6 +11,7 @@
 namespace Config {
 
 using namespace std::literals::string_view_literals;
+
 // Window rule list
 // Rules will be applied in order listed, any conflicting rules will be decided by whichever rule comes last,
 // so order them from most general -> most specific.
@@ -71,7 +72,7 @@ const Vec InitialPrimaryStackDimensions = Vec{1, 1};
 // 2 Axes: X and Y. 2 Directions: Positive and Negative
 //  For X, positive is right, for Y, downwards
 // Enumerated from least significant (rightmost) bit to most significant (leftmost) bit
-// 0th bit -- Primary Axis
+// 0th bit -- Primary grid axis
 //              Axis that first strip goes along
 //              0: X, 1: Y
 // 1st bit -- Primary grid direction
@@ -89,6 +90,39 @@ const Vec InitialPrimaryStackDimensions = Vec{1, 1};
 // 5th bit -- Secondary stack direction
 //              Direction secondary stack goes along remaining axis
 //              0: Positive, 1: Negative
+// Diagram:
+/*
+    +---------------------------------------------+-----------------------+
+    |                                             |                       |
+    |    <------Primary-grid-axis------->         |                       |
+    |                                             |                       |
+    |    +-Primary-grid-direction---->            |      +                |
+    |   +                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   | Secondary                               |      | Secondary      |
+    |   | grid                                    |      | stack          |
+    |   | direction                               |      | direction      |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   v                                         |      v                |
+    |                                             |                       |
+    |                                             |                       |
+    |                                             |                       |
+    +---------------------------------------------+-----------------------+
+
+        <----------------------Primary-secondary-axis----------------->
+
+            +----------------Primary-secondary-direction---------->
+*/
 using StackGridOrientation = std::bitset<6>;
 const StackGridOrientation InitialStackGridOrientation = 0b010000;
 
