@@ -6,11 +6,13 @@
 
 #include <array>
 #include <bitset>
+#include <cstddef>
 #include <string_view>
 
 namespace Config {
 
 using namespace std::literals::string_view_literals;
+
 // Window rule list
 // Rules will be applied in order listed, any conflicting rules will be decided by whichever rule comes last,
 // so order them from most general -> most specific.
@@ -71,25 +73,66 @@ const Vec InitialPrimaryStackDimensions = Vec{1, 1};
 // 2 Axes: X and Y. 2 Directions: Positive and Negative
 //  For X, positive is right, for Y, downwards
 // Enumerated from least significant (rightmost) bit to most significant (leftmost) bit
-// 0th bit -- Primary Axis
+// 0th bit -- Grid primary axis
 //              Axis that first strip goes along
 //              0: X, 1: Y
-// 1st bit -- Primary grid direction
+// 1st bit -- Grid primary direction
 //              Direction that first strip goes along primary axis
 //              0: Positive, 1: Negative
-// 2nd bit -- Secondary grid direction
+// 2nd bit -- Grid secondary direction
 //              Direction that strips are tiled along the secondary axis
 //              0: Positive, 1: Negative
-// 3rd bit -- Primary-Secondary axis
+// 3rd bit -- Primary-secondary axis
 //              Axis that primary grid and secondary stack are laid out along
 //              0: X, 1: Y
-// 4th bit -- Primary-Secondary direction
+// 4th bit -- Primary-secondary direction
 //              Direction that the primary grid and then secondary stack are laid out along primary-secondary axis
 //              0: Positive, 1: Negative
 // 5th bit -- Secondary stack direction
 //              Direction secondary stack goes along remaining axis
 //              0: Positive, 1: Negative
+// Diagram:
+/*
+    +---------------------------------------------+-----------------------+
+    |                                             |                       |
+    |    <------Primary-grid-axis------->         |                       |
+    |                                             |                       |
+    |    +-Primary-grid-direction---->            |      +                |
+    |   +                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   | Secondary                               |      | Secondary      |
+    |   | grid                                    |      | stack          |
+    |   | direction                               |      | direction      |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   |                                         |      |                |
+    |   v                                         |      v                |
+    |                                             |                       |
+    |                                             |                       |
+    |                                             |                       |
+    +---------------------------------------------+-----------------------+
+
+        <----------------------Primary-secondary-axis----------------->
+
+            +----------------Primary-secondary-direction---------->
+*/
 using StackGridOrientation = std::bitset<6>;
 const StackGridOrientation InitialStackGridOrientation = 0b010000;
+enum OrientationBits : std::size_t {
+    GridAxis,
+    GridPrimaryDirection,
+    GridSecondaryDirection,
+    PrimarySecondaryAxis,
+    PrimarySecondaryDirection,
+    SecondaryDirection,
+};
 
 } // namespace Config

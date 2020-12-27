@@ -19,5 +19,7 @@ struct Desktop {
 
     Config::StackGridOrientation grid_orientation = Config::InitialStackGridOrientation;
 
+    Vec stack_dimensions = Config::InitialPrimaryStackDimensions;
+
     void updateRect(Rect rect);
 };

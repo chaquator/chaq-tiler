@@ -1,32 +1,19 @@
 #include <windows.h>
 
+#include <algorithm>
+#include <cassert>
 #include <cstddef>
-
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include <cassert>
-
-#include <algorithm>
-
 #include "Desktop.h"
+#include "Globals.h"
 #include "Rule.h"
 #include "Vec.h"
 #include "Views.h"
 #include "Window.h"
 #include "config.h"
-
-// Globals
-namespace Globals {
-// runtime globals
-std::vector<Window> Windows;
-decltype(Windows)::const_iterator WindowPartitionPoint;
-
-// setup globals
-HMONITOR PrimaryMonitor;
-Desktop PrimaryDesktop;
-} // namespace Globals
 
 static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title,
                           std::wstring_view& class_name);
@@ -39,7 +26,7 @@ static bool SetupDesktop(Desktop&, HMONITOR);
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int);
 
-constexpr std::size_t buflen = 256; // TODO: this absolutely has to go somewhere else s2g
+constexpr std::size_t buflen = 256;
 
 #ifdef NDEBUG
 #define debug(s) ((void)0)
@@ -102,6 +89,7 @@ bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view
         if (monitor != Globals::PrimaryMonitor) return false;
     }
 
+    // skip if any applying rule specifies that the window should not be managed
     bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(),
                                    [&style, &exStyle, &title, &class_name](const auto& rule) -> bool {
                                        return DoesRuleApply(rule, style, exStyle, title, class_name) && !rule.Manage;
@@ -185,10 +173,11 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
     // Partition windows between non-floating and floating
     Globals::WindowPartitionPoint = std::stable_partition(Globals::Windows.begin(), Globals::Windows.end(),
                                                           [](const auto& window) -> bool { return !window.floating; });
+    Globals::WindowFocusPoint = Globals::Windows.cbegin();
 
     // Single view call for now
-    Views::Cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
-    // Views::TileStack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+    // Views::Cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+    Views::TileStack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
 
     return 0;
 }
@@ -207,11 +196,11 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
         [X] Create tile-strip function, drawns range of windows tiled next to each other (accounts for margins and
             all) within an area, parameterized for both horizontal and vertical orientation
             Consider parameterizing reverse of drawing too (for all levels)
-        [X] Test tile-strip
         [X] Create monocle area function, piles windows on top of each other (bottom up)
+        [X] Write draw-grid function
+        [ ] Test tile-strip
         [ ] Test monocle area function
-        [ ] Use tile-strip & monocle to draw primary stack, secondary stack
-        [ ] test
+        [ ] Test draw-grid function
 
         move window-related functions out into seperate file
         [X] set window position function
