@@ -364,3 +364,5 @@ FodyWeavers.xsd
 .cache/
 [Bb]uild/
 compile_commands.json
+*.swp
+*.swo
