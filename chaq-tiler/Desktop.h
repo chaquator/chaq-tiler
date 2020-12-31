@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdlib>
+
 #include "Enums.h"
 #include "Vec.h"
 
@@ -19,7 +21,9 @@ struct Desktop {
 
     Config::StackGridOrientation grid_orientation = Config::InitialStackGridOrientation;
 
-    Vec stack_dimensions = Config::InitialPrimaryStackDimensions;
+    Vec grid_dimensions = Config::InitialPrimaryGridDimensions;
+
+    std::size_t secondary_max_windows = Config::InitialSecondaryMaxWindows;
 
     void updateRect(Rect rect);
 };

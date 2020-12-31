@@ -12,12 +12,12 @@ void Window::SetPos(const Rect& rect, HWND after, bool hide) const {
 
 void Window::ApplyAction() const {
     switch (this->action) {
-    case Rule::SingleAction::None:
+    case Rule::Action::None:
         break;
-    case Rule::SingleAction::Unmaximize: {
+    case Rule::Action::Unmaximize: {
         ShowWindow(this->handle, SW_SHOWNORMAL);
     } break;
-    case Rule::SingleAction::Maximize: {
+    case Rule::Action::Maximize: {
         ShowWindow(this->handle, SW_SHOWMAXIMIZED);
     } break;
     }

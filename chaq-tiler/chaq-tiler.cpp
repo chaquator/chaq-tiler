@@ -66,7 +66,7 @@ Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& 
         // Tag masks will be OR'd together
         new_window.floating = rule.Floating;
         new_window.current_tags |= rule.TagMask;
-        new_window.action = rule.Action;
+        new_window.action = rule.SpecificAction;
     }
 
     return new_window;
@@ -198,17 +198,14 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
             Consider parameterizing reverse of drawing too (for all levels)
         [X] Create monocle area function, piles windows on top of each other (bottom up)
         [X] Write draw-grid function
-        [ ] Test tile-strip
-        [ ] Test monocle area function
-        [ ] Test draw-grid function
+        [X] Test tile-strip
+        [X] Test monocle area function
+        [X] Test draw-grid function
+        [X] Write and test entire tile-stack fuction
 
         move window-related functions out into seperate file
         [X] set window position function
         [ ] the rest
-
-        Future notes:
-        This only matters for the cascading and monocle view, consider setting the user's foucs to the correct window
-        if just adjusting the windows is not focusing correctly
 
         When hotkeys are in, be sure cursor doesn't enter into floating windows partition, instead loops back.
             There definitely should be a way to change focus too. Maybe even change cursor position.

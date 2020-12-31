@@ -7,7 +7,7 @@
 #include <string_view>
 
 struct Rule {
-    enum class SingleAction {
+    enum class Action {
         None,
         Unmaximize,
         Maximize,
@@ -42,5 +42,5 @@ struct Rule {
     // NOTE: 0th bit is intended to represent key 1 on the number row, and so on
     std::bitset<10> TagMask;
     // Action -- any specific action applied to the window when first managed
-    SingleAction Action;
+    Action SpecificAction;
 };
