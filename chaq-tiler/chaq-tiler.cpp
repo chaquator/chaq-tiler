@@ -207,6 +207,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
         [X] set window position function
         [ ] the rest
 
+        track new windows
+        [ ] Investigate the work of bug.n and dwm-win32 to see what the process is for tracking new windows
+
         When hotkeys are in, be sure cursor doesn't enter into floating windows partition, instead loops back.
             There definitely should be a way to change focus too. Maybe even change cursor position.
             SetFocus? SetForegroundWindow?  Investigate dwm-win32 and bug.n

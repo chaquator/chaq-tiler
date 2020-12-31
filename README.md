@@ -5,8 +5,8 @@ chaq-tiler is an MIT licensed, C++ based, dwm inspired stack-based dynamic windo
 ## goal checklist
 - [X] enumerate and filter open windows
 - [X] create stack and move windows accordingly
-- [ ] dwm-like tiling view supporting 2d primary stack and parameterized orientation
-- [ ] monocle tiling view
+- [X] dwm-like tiling view supporting 2d primary stack and parameterized orientation
+- [X] monocle tiling view
 - [ ] track new windows and windows being closed
 - [ ] hotkeys, including moving along the stack and tag selection
 - [ ] tracking window focus
