@@ -157,10 +157,8 @@ void TileStack(const Iterator start, const Iterator end, const Desktop& desktop)
             tile_strip(cur, s_end, secondary_rect, desktop.margin, !primary_secondary_axis, secondary_direction);
 
             // Hide remaining windows
-            if (s_end != end) {
-                std::for_each(s_end, end,
-                              [&secondary_rect](const auto& w) { w.SetPos(secondary_rect, HWND_BOTTOM, true); });
-            }
+            std::for_each(s_end, end,
+                          [&secondary_rect](const auto& w) { w.SetPos(secondary_rect, HWND_BOTTOM, true); });
         } break;
         case Enums::ViewType::Monocle:
             monocle_area(cur, end, secondary_rect, desktop.margin, secondary_direction);
