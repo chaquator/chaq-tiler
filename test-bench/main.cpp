@@ -5,8 +5,10 @@
 
 #define NAME "chaq_tiler_dmmy"
 
-void Proc(HWINEVENTHOOK hook, DWORD event, HWND hwnd, LONG isObj, LONG isChild, DWORD idEventThread,
+void Proc(HWINEVENTHOOK hook, DWORD event, HWND hwnd, LONG idObj, LONG idChild, DWORD idEventThread,
           DWORD dwmsEventTime) {
+    bool process_window = idChild == CHILDID_SELF && idObj == OBJID_WINDOW && hwnd != NULL;
+    if (!process_window) return;
     std::cout << "Poop\n";
 }
 
@@ -23,6 +25,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     return 0;
 }
 
+struct EventHookSpec {
+    using Func = void (*)(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD);
+    DWORD start;
+    DWORD end;
+    Func function;
+};
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     if (AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()) {
 #pragma warning(disable : 4996)
@@ -31,19 +40,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
     }
     putchar('\n');
 
-    std::initializer_list<DWORD[2]> pairs = {
-        {EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY},
-        {EVENT_OBJECT_CLOAKED, EVENT_OBJECT_UNCLOAKED},
-        {EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND},
-        {EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZEEND},
-        {EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND},
-        {EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE},
+    std::initializer_list<EventHookSpec> specs = {
+        {EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY, Proc},
+        {EVENT_OBJECT_CLOAKED, EVENT_OBJECT_UNCLOAKED, Proc},
+        {EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND, Proc},
+        {EVENT_SYSTEM_MOVESIZESTART, EVENT_SYSTEM_MOVESIZEEND, Proc},
+        {EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, Proc},
+        {EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, Proc},
     };
-    for (const auto& pair : pairs) {
-        SetWinEventHook(pair[0], pair[1], NULL, Proc, NULL, NULL, WINEVENT_OUTOFCONTEXT);
+    for (const auto& spec : specs) {
+        SetWinEventHook(spec.start, spec.end, NULL, spec.function, NULL, NULL, WINEVENT_OUTOFCONTEXT);
     }
 
-    WNDCLASSEX wc;
+    WNDCLASSEX wc = {};
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.style = 0;
     wc.lpfnWndProc = WndProc;
