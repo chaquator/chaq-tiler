@@ -22,13 +22,13 @@ namespace Views {
 
 // integer ceil div (positive)
 template <typename T1, typename T2>
-static std::common_type_t<T1, T2> ceil(T1 a, T2 b) {
+static constexpr std::common_type_t<T1, T2> ceil(T1 a, T2 b) {
     return (a / b) + (((a % b) != 0) ? 1 : 0);
 }
 
 // min
 template <typename T1, typename T2>
-static std::common_type_t<T1, T2> min(T1 a, T2 b) {
+static constexpr std::common_type_t<T1, T2> min(T1 a, T2 b) {
     using c_t = std::common_type_t<T1, T2>;
     auto ca = static_cast<c_t>(a);
     auto cb = static_cast<c_t>(b);
@@ -37,7 +37,7 @@ static std::common_type_t<T1, T2> min(T1 a, T2 b) {
 
 // max
 template <typename T1, typename T2>
-static std::common_type_t<T1, T2> max(T1 a, T2 b) {
+static constexpr std::common_type_t<T1, T2> max(T1 a, T2 b) {
     using c_t = std::common_type_t<T1, T2>;
     auto ca = static_cast<c_t>(a);
     auto cb = static_cast<c_t>(b);
@@ -152,7 +152,8 @@ void TileStack(const Iterator start, const Iterator end, const Desktop& desktop)
         switch (desktop.secondary_view) {
         case Enums::ViewType::TileStack: {
             auto remaining = std::distance(cur, end);
-            auto s_dist = min(remaining, desktop.secondary_max_windows);
+            auto s_dist =
+                desktop.secondary_max_windows != 0 ? min(remaining, desktop.secondary_max_windows) : remaining;
             auto s_end = cur + s_dist;
             tile_strip(cur, s_end, secondary_rect, desktop.margin, !primary_secondary_axis, secondary_direction);
 

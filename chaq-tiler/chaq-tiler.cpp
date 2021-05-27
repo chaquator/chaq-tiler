@@ -14,67 +14,21 @@
 #include "Views.h"
 #include "Window.h"
 #include "config.h"
+#include "debug.h"
 
-static bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title,
-                          std::wstring_view& class_name);
-static Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title,
-                             std::wstring_view& class_name);
 static bool ShouldManageWindow(HWND, LONG, LONG, std::wstring_view&, std::wstring_view&);
 static BOOL CALLBACK CreateWindows(HWND, LPARAM);
-static HMONITOR GetPrimaryMonitorHandle();
-static bool SetupDesktop(Desktop&, HMONITOR);
+static HMONITOR PrimaryMonitorHandle();
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int);
 
 constexpr std::size_t buflen = 256;
 
-#ifdef NDEBUG
-#define debug(s) ((void)0)
-#else
-#define debug(s) OutputDebugStringA(s "\n")
-#endif
-
-// Given the attributes, does the given rule apply
-bool DoesRuleApply(const Rule& rule, LONG style, LONG exStyle, std::wstring_view& title,
-                   std::wstring_view& class_name) {
-    // Class name filtering (substring search)
-    if (!rule.ClassName.empty() && class_name.find(rule.ClassName) == std::string_view::npos) return false;
-
-    // Title name filtering (substring search)
-    if (!rule.TitleName.empty() && title.find(rule.TitleName) == std::string_view::npos) return false;
-
-    // Style filtering (all flags in rule's style are present in the given style)
-    if ((style & rule.Style) != rule.Style) return false;
-
-    // Extended Style filtering (ditto)
-    if ((exStyle & rule.ExStyle) != rule.ExStyle) return false;
-
-    return true;
-}
-
-// Create new window and apply all rules to it given its attributes
-Window GenerateWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title, std::wstring_view& class_name) {
-    Window new_window{window, title, class_name};
-    for (const auto& rule : Config::WindowRuleList) {
-        // Skip rules that does not manage any windows
-        if (!rule.Manage) continue;
-
-        // Skip if rule does not apply
-        if (!DoesRuleApply(rule, style, exStyle, title, class_name)) continue;
-
-        // Otherwise, apply rules
-        // Tag masks will be OR'd together
-        new_window.floating = rule.Floating;
-        new_window.current_tags |= rule.TagMask;
-        new_window.action = rule.SpecificAction;
-    }
-
-    return new_window;
-}
+static HMONITOR primary_monitor;
 
 // Given the attributes, should this window be managed
-bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title,
-                        std::wstring_view& class_name) {
+static bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view& title,
+                               std::wstring_view& class_name) {
     // TODO: virtual desktop filtering
 
     // Empty window name filtering
@@ -86,19 +40,24 @@ bool ShouldManageWindow(HWND window, LONG style, LONG exStyle, std::wstring_view
     // Primary monitor only filtering
     if (Config::PrimaryMonitorWindowsOnly) {
         HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONULL);
-        if (monitor != Globals::PrimaryMonitor) return false;
+        if (monitor != primary_monitor) return false;
     }
 
     // skip if any applying rule specifies that the window should not be managed
-    bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(),
-                                   [&style, &exStyle, &title, &class_name](const auto& rule) -> bool {
-                                       return DoesRuleApply(rule, style, exStyle, title, class_name) && !rule.Manage;
-                                   });
+    auto skip_test = [&style, &exStyle, &title, &class_name](const Rule& rule) -> bool {
+        // dont worry abuot rules not relevant to window
+        if (!Window::DoesRuleApply(rule, style, exStyle, title, class_name)) return false;
 
+        // if the relevant rule says not to manage the window, we skip adding the window
+        return !rule.Manage;
+    };
+    bool should_skip = std::any_of(Config::WindowRuleList.cbegin(), Config::WindowRuleList.cend(), skip_test);
+
+    // true if window should *not* be skipped
     return !should_skip;
 }
 
-BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
+static BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
     // TODO: make WS_MAXIMIZE windows unmaximize, try ShowWindow(window,
     // SW_RESTORE) Attributes
     LONG style = GetWindowLongW(window, GWL_STYLE);
@@ -134,39 +93,19 @@ BOOL CALLBACK CreateWindows(HWND window, LPARAM) {
     std::wstring_view class_name{(LPWSTR)class_buf, static_cast<std::size_t>(len)};
 
     if (ShouldManageWindow(window, style, exStyle, title, class_name)) {
-        Window new_window = GenerateWindow(window, style, exStyle, title, class_name);
-        Globals::Windows.push_back(std::move(new_window));
+        Globals::Windows.emplace_back(window, style, exStyle, title, class_name);
     }
 
     return TRUE;
 }
 
-HMONITOR GetPrimaryMonitorHandle() { return MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY); }
-
-bool SetupDesktop(Desktop& desktop, HMONITOR monitor) {
-    MONITORINFO monitor_info;
-    monitor_info.cbSize = sizeof(MONITORINFO);
-
-    if (!GetMonitorInfoW(monitor, &monitor_info)) {
-        debug("Failed to get primary monitor");
-        return false;
-    }
-
-    // Primary desktop rectangle
-    Rect desktop_rect = {
-        Vec{monitor_info.rcWork.left, monitor_info.rcWork.top},
-        Vec{monitor_info.rcWork.right - monitor_info.rcWork.left, monitor_info.rcWork.bottom - monitor_info.rcWork.top},
-    };
-    desktop.updateRect(desktop_rect);
-
-    return true;
-}
+static HMONITOR PrimaryMonitorHandle() { return MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY); }
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
     // Setup globals
     // Primary monitor
-    Globals::PrimaryMonitor = GetPrimaryMonitorHandle();
-    SetupDesktop(Globals::PrimaryDesktop, Globals::PrimaryMonitor);
+    primary_monitor = PrimaryMonitorHandle();
+    Globals::Desktops.emplace_back(primary_monitor);
 
     // Set up windows
     EnumWindows(CreateWindows, (LPARAM)0);
@@ -176,9 +115,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
     Globals::WindowFocusPoint = Globals::Windows.cbegin();
 
     // Single view call for now
-    // Views::Cascade(Globals::Windows.cbegin(), Globals::WindowPartitionPoint,
-    // Globals::PrimaryDesktop);
-    Views::TileStack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::PrimaryDesktop);
+    Views::TileStack(Globals::Windows.cbegin(), Globals::WindowPartitionPoint, Globals::Desktops[0]);
 
     return 0;
 }

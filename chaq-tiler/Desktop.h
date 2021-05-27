@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <windows.h>
 
 #include "Enums.h"
 #include "Vec.h"
@@ -12,7 +13,7 @@
 // orientation and position of it too)
 struct Desktop {
     // Upper left point and screen-size
-    Rect rect;
+    Rect rect = {{0, 0}, {0, 0}};
     Vec::vec_t margin = Config::InitialMargin;
     float primary_stack_proportion = Config::InitialPrimaryStackProportion;
 
@@ -25,5 +26,7 @@ struct Desktop {
 
     std::size_t secondary_max_windows = Config::InitialSecondaryMaxWindows;
 
-    void updateRect(Rect rect);
+    void updateRect(const Rect rect);
+
+    Desktop(HMONITOR monitor);
 };

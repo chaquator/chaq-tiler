@@ -2,7 +2,9 @@ set(src_files
 	Desktop.cpp
 	Window.cpp
 	chaq-tiler.cpp
+    Globals.cpp
 	config.h
+    debug.h
 	Desktop.h
 	Enums.h
 	Rule.h

@@ -9,12 +9,11 @@
 namespace Globals {
 
 // runtime globals
-std::vector<Window> Windows;
-decltype(Windows)::const_iterator WindowPartitionPoint;
-decltype(Windows)::const_iterator WindowFocusPoint;
+extern std::vector<Window> Windows;
+extern decltype(Windows)::const_iterator WindowPartitionPoint;
+extern decltype(Windows)::const_iterator WindowFocusPoint;
 
 // setup globals
-HMONITOR PrimaryMonitor;
-Desktop PrimaryDesktop;
+extern std::vector<Desktop> Desktops;
 
 } // namespace Globals

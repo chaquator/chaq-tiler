@@ -69,9 +69,10 @@ const Vec::vec_t ProportionIncrement = 32;
 // Proportion of screen that primary stack takes up
 const float InitialPrimaryStackProportion = 0.666666f;
 // Dimensions of primary grid
-const Vec InitialPrimaryGridDimensions = Vec{1, 1};
+const Vec InitialPrimaryGridDimensions = Vec{2, 2};
 // Maximum number of windows to display in secondary stack
-const std::size_t InitialSecondaryMaxWindows = 2;
+// Specify 0 to allow any amount of windows for the secondary stack
+const std::size_t InitialSecondaryMaxWindows = 0;
 
 /*
     Stack Grid Orientaiton
