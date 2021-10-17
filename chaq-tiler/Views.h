@@ -20,6 +20,12 @@
 
 namespace Views {
 
+// select comopnent as an lvalue reference given the axis
+template <typename vector>
+static decltype(auto) component_of_interest(bool axis, vector& v) {
+    return axis ? (v.y) : (v.x);
+}
+
 // integer ceil div (positive)
 template <typename T1, typename T2>
 static constexpr std::common_type_t<T1, T2> ceil(T1 a, T2 b) {
@@ -103,6 +109,116 @@ void Cascade(const Iterator start, const Iterator end, const Desktop& desktop) {
     single_cascade(remaining, current_window, current_cascade, window_rect);
 }
 
+// Helper function to draw single tiled strip with parameterized orientation and direction
+// No margins on the sides, only margin between windows
+// Axis: false -> X, true -> Y
+// Reverse: false -> negative, true -> positive
+template <typename Iterator>
+static Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool axis,
+                           bool reverse) {
+    Vec working_size = area.dimensions;
+
+    Rect window_rect{
+        area.upper_left, // Upper-left
+        working_size,    // Dimensions
+    };
+
+    // Set correct window size so that edges have no margin, only margin between windows in strip
+    // L+M = N*(S+M) --> S = (L+M)/N - M
+    // the reason to have L+M is because one area of margin to the right (or downwards) will not be used
+    auto& size_component = component_of_interest(axis, window_rect.dimensions);
+    size_component += margin;
+    size_component /= static_cast<Vec::vec_t>(std::distance(start, end));
+    size_component -= margin;
+
+    // Upper left component of interest
+    auto& current_ul_component = component_of_interest(axis, window_rect.upper_left);
+    auto ul_offset = size_component + margin;
+
+    // reverse starts from other side and moves backwards
+    if (reverse) {
+        ul_offset = -ul_offset;
+        current_ul_component += component_of_interest(axis, working_size) - size_component;
+    }
+
+    // Tile windows
+    std::for_each(start, end, [&window_rect, &current_ul_component, &ul_offset](const auto& window) {
+        window.SetPos(window_rect, HWND_TOP);
+        current_ul_component += ul_offset;
+    });
+
+    // Function will be used like Iterator current_window = tile_strip(...);
+    return end;
+}
+
+template <typename Iterator>
+static Iterator draw_grid(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin,
+                          const Config::StackGridOrientation& orientation, const Vec& grid_dimensions) {
+    auto axis = orientation.test(Config::Orientation::GridAxis);
+    auto primary_reverse = orientation.test(Config::Orientation::GridPrimaryDirection);
+    auto secondary_reverse = orientation.test(Config::Orientation::GridSecondaryDirection);
+
+    auto primary_max = grid_dimensions.x * grid_dimensions.y;
+
+    auto dist = min(std::distance(start, end), primary_max);
+    auto strip_length = component_of_interest(axis, grid_dimensions);
+    auto num_strips = ceil(dist, strip_length);
+
+    Rect cur_rect = area;
+    auto& ul_component = component_of_interest(!axis, cur_rect.upper_left);
+    auto& size_component = component_of_interest(!axis, cur_rect.dimensions);
+    size_component += margin;
+    size_component /= static_cast<Vec::vec_t>(num_strips);
+    size_component -= margin;
+
+    auto ul_offset = size_component + margin;
+    if (secondary_reverse) {
+        ul_component += component_of_interest(!axis, area.dimensions) - size_component;
+        ul_offset = -ul_offset;
+    }
+
+    auto cur = start;
+    auto nend = start + dist;
+
+    while (cur != nend) {
+        // draw strip
+        auto inc = min(std::distance(cur, nend), strip_length);
+        cur = tile_strip(cur, cur + inc, cur_rect, margin, axis, primary_reverse);
+        ul_component += ul_offset;
+    }
+
+    return nend;
+}
+
+template <typename Iterator>
+static Iterator monocle_area(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin,
+                             bool reverse) {
+    auto size = std::distance(start, end);
+    if (size == 0) return end;
+
+    // different behavior based on whether range includes current focused window
+    // relying on global data to change the behavior of a function, hate to see it
+    auto draw_window = reverse ? end : start;
+    auto& f = Globals::WindowFocusPoint;
+    auto l = std::distance(start, f);
+    auto r = std::distance(f, end);
+    if (l >= 0 && r >= 0) {
+        // focus point is within range
+        draw_window = f;
+    }
+
+    Iterator current = start;
+    while (current != end) {
+        auto& window = *current;
+
+        window.SetPos(area, HWND_TOP, current != draw_window);
+
+        ++current;
+    }
+
+    return end;
+}
+
 // Traditional dwm-like stack
 template <typename Iterator>
 void TileStack(const Iterator start, const Iterator end, const Desktop& desktop) {
@@ -170,122 +286,6 @@ void TileStack(const Iterator start, const Iterator end, const Desktop& desktop)
         apply_margin(primary_rect);
         draw_grid(start, end, primary_rect, desktop.margin, desktop.grid_orientation, desktop.grid_dimensions);
     }
-}
-
-// select comopnent as an lvalue reference given the axis
-template <typename Vector>
-static decltype(auto) component_of_interest(bool axis, Vector& v) {
-    return axis ? (v.y) : (v.x);
-}
-
-template <typename Iterator>
-static Iterator draw_grid(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin,
-                          const Config::StackGridOrientation& orientation, const Vec& grid_dimensions) {
-    auto axis = orientation.test(Config::Orientation::GridAxis);
-    auto primary_reverse = orientation.test(Config::Orientation::GridPrimaryDirection);
-    auto secondary_reverse = orientation.test(Config::Orientation::GridSecondaryDirection);
-
-    auto primary_max = grid_dimensions.x * grid_dimensions.y;
-
-    auto dist = min(std::distance(start, end), primary_max);
-    auto strip_length = component_of_interest(axis, grid_dimensions);
-    auto num_strips = ceil(dist, strip_length);
-
-    Rect cur_rect = area;
-    auto& ul_component = component_of_interest(!axis, cur_rect.upper_left);
-    auto& size_component = component_of_interest(!axis, cur_rect.dimensions);
-    size_component += margin;
-    size_component /= static_cast<Vec::vec_t>(num_strips);
-    size_component -= margin;
-
-    auto ul_offset = size_component + margin;
-    if (secondary_reverse) {
-        ul_component += component_of_interest(!axis, area.dimensions) - size_component;
-        ul_offset = -ul_offset;
-    }
-
-    auto cur = start;
-    auto nend = start + dist;
-
-    while (cur != nend) {
-        // draw strip
-        auto inc = min(std::distance(cur, nend), strip_length);
-        cur = tile_strip(cur, cur + inc, cur_rect, margin, axis, primary_reverse);
-        ul_component += ul_offset;
-    }
-
-    return nend;
-}
-
-// Helper function to draw single tiled strip with parameterized orientation and direction
-// No margins on the sides, only margin between windows
-// Axis: false -> X, true -> Y
-// Reverse: false -> negative, true -> positive
-template <typename Iterator>
-static Iterator tile_strip(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin, bool axis,
-                           bool reverse) {
-    Vec working_size = area.dimensions;
-
-    Rect window_rect{
-        area.upper_left, // Upper-left
-        working_size,    // Dimensions
-    };
-
-    // Set correct window size so that edges have no margin, only margin between windows in strip
-    // L+M = N*(S+M) --> S = (L+M)/N - M
-    // the reason to have L+M is because one area of margin to the right (or downwards) will not be used
-    auto& size_component = component_of_interest(axis, window_rect.dimensions);
-    size_component += margin;
-    size_component /= static_cast<Vec::vec_t>(std::distance(start, end));
-    size_component -= margin;
-
-    // Upper left component of interest
-    auto& current_ul_component = component_of_interest(axis, window_rect.upper_left);
-    auto ul_offset = size_component + margin;
-
-    // reverse starts from other side and moves backwards
-    if (reverse) {
-        ul_offset = -ul_offset;
-        current_ul_component += component_of_interest(axis, working_size) - size_component;
-    }
-
-    // Tile windows
-    std::for_each(start, end, [&window_rect, &current_ul_component, &ul_offset](const auto& window) {
-        window.SetPos(window_rect, HWND_TOP);
-        current_ul_component += ul_offset;
-    });
-
-    // Function will be used like Iterator current_window = tile_strip(...);
-    return end;
-}
-
-template <typename Iterator>
-static Iterator monocle_area(const Iterator start, const Iterator end, const Rect& area, Vec::vec_t margin,
-                             bool reverse) {
-    auto size = std::distance(start, end);
-    if (size == 0) return end;
-
-    // different behavior based on whether range includes current focused window
-    // relying on global data to change the behavior of a function, hate to see it
-    auto draw_window = reverse ? end : start;
-    auto& f = Globals::WindowFocusPoint;
-    auto l = std::distance(start, f);
-    auto r = std::distance(f, end);
-    if (l >= 0 && r >= 0) {
-        // focus point is within range
-        draw_window = f;
-    }
-
-    Iterator current = start;
-    while (current != end) {
-        auto& window = *current;
-
-        window.SetPos(area, HWND_TOP, current != draw_window);
-
-        ++current;
-    }
-
-    return end;
 }
 
 } // namespace Views

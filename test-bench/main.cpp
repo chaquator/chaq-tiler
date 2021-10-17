@@ -3,7 +3,7 @@
 #include <initializer_list>
 #include <iostream>
 
-#define NAME "chaq_tiler_dmmy"
+#define NAME TEXT("chaq_tiler_dmmy")
 
 void Proc(HWINEVENTHOOK hook, DWORD event, HWND hwnd, LONG idObj, LONG idChild, DWORD idEventThread,
           DWORD dwmsEventTime) {
